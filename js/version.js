@@ -1,7 +1,14 @@
 // MODEM DELUXE - 更新履歴
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.0.1";
 
 const CHANGELOG = [
+  {
+    version: "1.0.1",
+    date: "2026-08-28",
+    notes: [
+      "修正: 電源投入後、青一色の画面から先へ進めない不具合を修正(空のダウンロード画面が常に最前面を覆っていた)"
+    ]
+  },
   {
     version: "1.0.0",
     date: "2026-08-28",
