@@ -42,12 +42,14 @@ const Dex = (function(){
         </div>
       </div>`;
     }
+    const up = got && game.state.uploads[file.name];
     return `<div class="dex-card ${got?'':'dex-undiscovered'}">
       <div class="dex-icon">${got ? (file.rarity==='secret'?'🗝️':'📄') : '❔'}</div>
       <div class="dex-info">
         <div class="dex-name">${file.name}</div>
         <div class="dex-meta"><span style="color:${rar.color}">${rar.label}</span> ・ ${formatSize(file.kb)}</div>
       </div>
+      ${got ? `<button class="dex-up ${up?'on':''}" data-up="${file.name}">${up?'配布中':'配布'}</button>` : ""}
       <div class="dex-count">${got ? '×'+count : '未取得'}</div>
     </div>`;
   }
@@ -67,6 +69,10 @@ const Dex = (function(){
     secretList().forEach(s=>{ rbTotal.secret++; if((game.state.stats.secretUnlocked||{})[s.key] || d[s.file.name]>0) rbGot.secret++; });
 
     let html = `
+      <div class="dex-upbar">📡 BBSに配布中: <b>${game.uploadCount()} / ${game.uploadSlots()}</b> 枠
+        ${game.uploadCount()>0 ? `　配布収入 約 ${formatMoney(Math.round(game.uploadRatePerSec()*3600))}/時` : ""}
+        <span class="dex-upbar-note">各ファイルの「配布」ボタンで登録。デスクトップで収入を受け取れます。</span>
+      </div>
       <div class="dex-summary">
         <div class="dex-pct-wrap">
           <div class="dex-pct">${pct}<small>%</small></div>
@@ -141,6 +147,12 @@ const Dex = (function(){
     </div>`;
 
     body.innerHTML = html;
+    body.querySelectorAll("[data-up]").forEach(b=>{
+      b.onclick = ()=>{
+        if(game.toggleUpload(b.dataset.up)){ Sound.click(); render(); }
+        else { Sound.error(); UI.banner("配布枠がいっぱいです（回線をアップグレードすると増えます）", "info"); }
+      };
+    });
   }
 
   function rankOf(r){ return ["common","uncommon","rare","legendary","secret"].indexOf(r); }

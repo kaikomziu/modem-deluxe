@@ -13,6 +13,8 @@ const Upgrades = (function(){
           <div class="up-tabs">
             <button class="up-tab active" data-tab="modem">回線グレード</button>
             <button class="up-tab" data-tab="aux">自動化・補助</button>
+            ${game.state.parts > 0 ? `<button class="up-tab" data-tab="parts">パーツ交換所</button>` : ""}
+            ${game.prestigeAvailable() || game.state.prestige.count > 0 ? `<button class="up-tab" data-tab="prestige">プレステージ</button>` : ""}
           </div>
           <div id="upContent"></div>
         </div>
@@ -23,10 +25,104 @@ const Upgrades = (function(){
         scr.querySelectorAll(".up-tab").forEach(x=> x.classList.remove("active"));
         b.classList.add("active");
         Sound.click();
-        b.dataset.tab === "modem" ? renderModem() : renderAux();
+        const t = b.dataset.tab;
+        t === "modem" ? renderModem() : t === "aux" ? renderAux() : t === "parts" ? renderParts() : renderPrestige();
       };
     });
     renderModem();
+  }
+
+  const PARTS_DISCOUNT = 0.12; // 1パーツ = 次の回線 12%引き (最大4パーツ)
+  function renderParts(){
+    const p = game.state.parts;
+    const next = game.nextModem();
+    let html = `<div class="up-current">
+      <div class="up-cur-label">所持パーツ</div>
+      <div class="up-cur-name">📦 ${p} 個</div>
+      <div class="up-cur-sub">ジャンクの山から拾ったモデムパーツ。次の回線購入時の割引に使える。</div>
+    </div>`;
+    if(next){
+      const usable = Math.min(p, 4);
+      const disc = usable * PARTS_DISCOUNT;
+      const price = Math.round(next.price * (1 - disc));
+      const afford = game.state.money >= price;
+      html += `<div class="up-next ${afford?'':'locked'}">
+        <div class="up-next-label">次の回線 (パーツ ${usable} 個で ${Math.round(disc*100)}%引き)</div>
+        <div class="up-next-name">${next.name}</div>
+        <div class="up-next-meta"><s>${formatMoney(next.price)}</s> → <b>${formatMoney(price)}</b></div>
+        <button class="win98-btn buy" id="buyPartsModem" ${afford?'':'disabled'}>パーツを使って導入 (${formatMoney(price)})</button>
+      </div>`;
+    } else {
+      html += `<div class="up-next"><div class="up-next-name">最終回線に到達済み</div></div>`;
+    }
+    document.getElementById("upContent").innerHTML = html;
+    const b = document.getElementById("buyPartsModem");
+    if(b) b.onclick = ()=>{
+      const usable = Math.min(game.state.parts, 4);
+      const price = Math.round(game.nextModem().price * (1 - usable * PARTS_DISCOUNT));
+      if(game.state.money < price){ Sound.error(); return; }
+      game.state.money -= price;
+      game.state.parts -= usable;
+      game.state.stats.partsSpent += usable;
+      game.state.maxTier++; game.state.modemTier = game.state.maxTier;
+      game.save(); checkAchievements();
+      Sound.coin(); Sound.ok();
+      UI.banner("パーツを使って " + game.modem().name + " を導入した", "good");
+      refreshMoney(); render();
+    };
+  }
+
+  function renderPrestige(){
+    const pr = game.state.prestige;
+    const gain = game.prestigeGain();
+    let html = `<div class="up-current">
+      <div class="up-cur-label">通信ポイント</div>
+      <div class="up-cur-name">✨ ${pr.points} pt　<span class="up-cur-sub">(解約 ${pr.count} 回)</span></div>
+      <div class="up-cur-sub">回線を解約して再契約すると、進行状況に応じた通信ポイントを得る。<br>
+        実績・図鑑・壁紙/BGM・通信ポイントは引き継がれる。所持金・回線・補助はリセット。</div>
+    </div>`;
+    if(game.prestigeAvailable()){
+      html += `<div class="up-next">
+        <div class="up-next-label">いま解約すると</div>
+        <div class="up-next-name">✨ +${gain} pt</div>
+        <button class="win98-btn buy" id="doPrestige">回線を解約して再契約する</button>
+      </div>`;
+    } else {
+      html += `<div class="up-next"><div class="up-next-sub">ADSL(tier 10)以上に到達すると解約できます。</div></div>`;
+    }
+    html += `<div class="up-aux-list">`;
+    for(const k in PRESTIGE_PERKS){
+      const def = PRESTIGE_PERKS[k];
+      const lv = game.perkLevel(k), max = def.levels.length;
+      const maxed = lv >= max;
+      const cost = maxed ? null : def.cost[lv];
+      const afford = !maxed && pr.points >= cost;
+      html += `<div class="up-aux ${maxed?'maxed':''}">
+        <div class="up-aux-icon">${def.icon}</div>
+        <div class="up-aux-main">
+          <div class="up-aux-name">${def.name} <span class="up-aux-lv">Lv.${lv}/${max}</span></div>
+          <div class="up-aux-desc">${def.desc}</div>
+        </div>
+        <div class="up-aux-buy">${maxed ? `<span class="up-aux-maxed">MAX</span>`
+          : `<button class="win98-btn" data-perk="${k}" ${afford?'':'disabled'}>✨${cost}</button>`}</div>
+      </div>`;
+    }
+    html += `</div>`;
+    document.getElementById("upContent").innerHTML = html;
+    const dp = document.getElementById("doPrestige");
+    if(dp) dp.onclick = ()=>{
+      if(!confirm(`回線を解約します。所持金・回線・補助がリセットされ、通信ポイント +${gain}pt を得ます。よろしいですか?`)) return;
+      const g = game.doPrestige();
+      Sound.ok(); Sound.coin();
+      UI.banner(`回線を解約。通信ポイント +${g}pt`, "good");
+      UI.desktop();
+    };
+    document.querySelectorAll("[data-perk]").forEach(b=>{
+      b.onclick = ()=>{
+        if(game.buyPerk(b.dataset.perk)){ Sound.coin(); renderPrestige(); }
+        else Sound.error();
+      };
+    });
   }
 
   function refreshMoney(){

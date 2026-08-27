@@ -90,7 +90,7 @@ const Handshake = (function(){
     const r = game.state.run;
     const digitAdj = (hasM("d_long") ? 2 : 0) - (hasM("d_short") ? 2 : 0);
     const baseDigits = Math.max(3, r.modem.digits + digitAdj);
-    const prefill = Math.max(0, Math.min(game.auxEffect("speeddial"), baseDigits - 3));
+    const prefill = Math.max(0, Math.min(game.auxEffect("speeddial") + game.perkEffect("dialasst"), baseDigits - 3));
     const len = Math.max(3, baseDigits - prefill);
     let target = hasM("d_fixed")
       ? fixedApNumber(r.isp, len)

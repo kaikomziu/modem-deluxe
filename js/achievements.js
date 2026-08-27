@@ -219,7 +219,24 @@ const ACHIEVEMENTS = [].concat(
   { id:"sp_bgm", name:"BGMのある生活", desc:"落としたMIDIをデスクトップBGMにした。", hidden:true,
     check:(s)=> s.bgmSet > 0 },
   { id:"sp_install", name:"インストール", desc:"落としたソフトをインストールした。", hidden:true,
-    check:(s)=> s.softInstalled > 0 }
+    check:(s)=> s.softInstalled > 0 },
+
+  // --- バッチ3: 経済の深み ---
+  tierAch("prestige","prestigeCount",[1,3,10],
+    (n)=> n===1 ? "回線を解約した" : `再契約の常連 ${n}`,
+    (n)=> `回線を解約して再契約するのを${n}回やった。`),
+  tierAch("upinc","uploadIncome",[1000,100000,10000000],
+    (n)=> `配布収入 累計 ${formatMoney(n)}`,
+    (n)=> `BBSへのファイル配布で累計${formatMoney(n)}稼いだ。`),
+  tierAch("hagw","haggleWins",[1,10,50],
+    (n)=> n===1 ? "交渉成立" : `闇市の常連 ${n}`,
+    (n)=> `闇市の価格交渉に${n}回勝った。`),
+  { id:"sp_haggleblown", name:"足元を見られた", desc:"闇市の交渉を決裂させて買い叩かれた。", hidden:true,
+    check:(s)=> s.haggleBlown > 0 },
+  tierAch("parts","partsFound",[1,20,100],
+    (n)=> `パーツ収集 ${n}`, (n)=> `ジャンクパーツを通算${n}個拾った。`, true),
+  { id:"sp_perkmax", name:"生まれ変わり", desc:"プレステージperkを何か1つ最大にした。", hidden:false,
+    check:(s)=> Object.keys(PRESTIGE_PERKS).some(k=> (game.state.prestige.perks[k]||0) >= PRESTIGE_PERKS[k].levels.length) }
 );
 
 // _hiddenSize / _distinctSize は疑似 stat。checkの直前に埋める。

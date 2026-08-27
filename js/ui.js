@@ -97,6 +97,8 @@ const UI = (function(){
             <div class="desk-stat"><span>実績</span><b>${got} / ${total}</b></div>
             <div class="desk-stat"><span>モデム温度</span><span class="heat-gauge"><span class="heat-fill" id="deskHeat"></span></span></div>
             <div class="desk-stat"><span>時間帯</span><b>${isTelehoTime()?'🌙 テレホーダイ (通話料¥0)':'☀ 通常 (通話料あり)'}</b></div>
+            ${game.uploadCount() > 0 ? `<div class="desk-stat desk-upstat"><span>📡 配布収入</span><b id="deskUpAmt">${formatMoney(game.uploadPending())}</b> <button class="win98-btn desk-up-collect" id="deskUpCollect">受け取る</button></div>` : ""}
+            ${game.state.prestige.count > 0 ? `<div class="desk-stat"><span>通信ポイント</span><b>✨ ${game.state.prestige.points}</b></div>` : ""}
             <button class="win98-btn big-connect" id="deskConnect">接続する ▶</button>
           </div>
         </div>
@@ -136,6 +138,13 @@ const UI = (function(){
       game.save();
       e.target.textContent = game.state.radioOffed ? "📻̸" : "📻";
     };
+    const upc = scr.querySelector("#deskUpCollect");
+    if(upc) upc.onclick = ()=>{
+      const amt = game.collectUpload();
+      Sound.coin();
+      UI.banner("配布収入 " + formatMoney(amt) + " を受け取った", "good");
+      desktop();
+    };
     startClock();
     startDeskLoop();
     updateAchBadge();
@@ -154,6 +163,8 @@ const UI = (function(){
       const pct = Math.min(100, h / 120 * 100);
       hf.style.width = pct + "%";
       hf.style.background = h >= game.heatCritical() ? "#e0483a" : h >= game.heatThreshold() ? "#e0a53a" : "#3ac06a";
+      const ua = document.getElementById("deskUpAmt");
+      if(ua) ua.textContent = formatMoney(game.uploadPending());
     };
     upd();
     deskLoopTimer = setInterval(upd, 1000);
@@ -436,6 +447,76 @@ const UI = (function(){
       if(b) b.closest(".res-choices").innerHTML = `<div class="res-ok">✔ 使用した。</div>`;
     }
 
+    function startHaggle(f, comp, V, cb){
+      let round = 0, brokerOffer = Math.round(V * (0.5 + Math.random()*0.15));
+      function draw(){
+        extraHtml = `
+          <div class="haggle">
+            <div class="haggle-line">ブローカー: 「これで <b>${formatMoney(brokerOffer)}</b> でどうだ」</div>
+            <div class="haggle-row">
+              <span>提示額</span>
+              <input type="range" id="haggleSlider" min="${Math.round(V*0.5)}" max="${Math.round(V*1.8)}" value="${Math.round(V*0.9)}" step="${Math.max(1,Math.round(V/100))}">
+              <b id="haggleVal">${formatMoney(Math.round(V*0.9))}</b>
+            </div>
+            <div class="res-choices">
+              <button class="win98-btn primary" id="haggleOffer">この額で交渉</button>
+              <button class="win98-btn" id="haggleAccept">${formatMoney(brokerOffer)}で手を打つ</button>
+            </div>
+            <div class="haggle-msg" id="haggleMsg"></div>
+          </div>`;
+        paint();
+        const sl = scr.querySelector("#haggleSlider"), vv = scr.querySelector("#haggleVal");
+        sl.oninput = ()=>{ vv.textContent = formatMoney(+sl.value); };
+        scr.querySelector("#haggleAccept").onclick = ()=>{
+          Sound.coin();
+          const v = game.acquireFile(f, comp);
+          const bonus = brokerOffer - v;
+          game.addMoney(bonus > 0 ? bonus : 0);
+          cb(Math.max(v, brokerOffer));
+        };
+        scr.querySelector("#haggleOffer").onclick = ()=>{
+          const ask = +sl.value;
+          round++;
+          const pAccept = Math.max(0.04, Math.min(0.95, 1.35 - ask / V));
+          if(Math.random() < pAccept){
+            Sound.coin();
+            game.state.stats.haggleWins++;
+            const v = game.acquireFile(f, comp);
+            game.addMoney(Math.max(0, ask - v));
+            checkAchievements();
+            cb(Math.max(v, ask));
+          } else if(round >= 3 || ask > V * 1.55){
+            Sound.error();
+            game.state.stats.haggleBlown++;
+            const v = game.acquireFile(f, comp);
+            const penalty = Math.round(v * 0.55);
+            game.addMoney(-penalty);
+            checkAchievements();
+            extraHtml = `<div class="res-warn">交渉決裂。ブローカーは去り、足元を見られて安く買い叩かれた…</div>`;
+            done(Math.max(1, v - penalty));
+          } else {
+            Sound.error();
+            brokerOffer = Math.round((ask + V * 0.55) / 2);
+            draw();
+            scr.querySelector("#haggleMsg").textContent = "ブローカー: 「足元を見るなよ。こっちの言い値だ」";
+          }
+        };
+      }
+      draw();
+    }
+
+    // --- ジャンクパーツ ---
+    if(kind === "part"){
+      const got = 1 + (Math.random() < 0.3 ? 1 : 0);
+      game.state.parts += got;
+      game.state.stats.partsFound += got;
+      game.save(); checkAchievements();
+      resolved = true;
+      extraHtml = `<div class="res-ok">📦 ジャンクの山からモデムパーツを ${got} 個回収した。<br>
+        アップグレード画面の「パーツ交換所」で使える。</div>`;
+      paint(); return;
+    }
+
     // --- 初期分岐 ---
     if(ok || kind === "virus" || kind === "chain"){
       if(kind === "virus"){
@@ -454,6 +535,24 @@ const UI = (function(){
           </div>`;
         paint(); return;
       }
+    }
+
+    // レア以上: 闇市で交渉できる
+    const canHaggle = ok && ["rare","legendary","secret"].includes(file.rarity) && game.state.stats.connects >= 5;
+    if(canHaggle){
+      const est = fileValue(file, completion, game.state.run);
+      extraHtml = `<div class="res-haggle-info">レアファイルだ。相場はおよそ <b>${formatMoney(est)}</b>。</div>
+        <div class="res-choices">
+          <button class="win98-btn primary" data-choice="sellnow">そのまま売る</button>
+          <button class="win98-btn" data-choice="haggle">闇市で交渉する</button>
+        </div>`;
+      const _onChoice = onChoice;
+      onChoice = function(c){
+        if(c === "sellnow"){ Sound.click(); const v = game.acquireFile(file, completion); done(v); return; }
+        if(c === "haggle"){ Sound.click(); startHaggle(file, completion, est, (v)=> done(v)); return; }
+        _onChoice(c);
+      };
+      paint(); return;
     }
 
     // 通常ファイル: 即取得

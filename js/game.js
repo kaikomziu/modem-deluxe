@@ -16,6 +16,9 @@ const game = {
       tutorialSeen:false, tutHints:{},
       modemHeat: 0, heatUpdatedAt: Date.now(),
       infected: null, wallpaper: null, bgm: null, installed: {},
+      prestige: { points: 0, perks: {}, count: 0 },
+      uploads: {}, uploadBank: 0, uploadCollectedAt: Date.now(),
+      parts: 0,
       achUnlocked: {},
       // ラン中の一時データ
       run: null,
@@ -39,7 +42,9 @@ const game = {
         phoneBillPaid:0, telehoConnects:0, overheatDrops:0, blackoutSaved:0,
         catchAnswered:0, catchIgnored:0, applianceHits:0,
         signaturesGot:{}, chainGot:0, chainForwarded:0, archivesOpened:0,
-        virusQuarantined:0, virusOpened:0, salvaged:0, wallpapersSet:0, bgmSet:0, softInstalled:0
+        virusQuarantined:0, virusOpened:0, salvaged:0, wallpapersSet:0, bgmSet:0, softInstalled:0,
+        prestigeCount:0, uploadIncome:0, haggleWins:0, haggleBlown:0, partsFound:0, partsSpent:0,
+        ghostRaces:0, ghostWins:0, y2kSurvived:false, timeAttackBest:0
       }
     };
   },
@@ -107,7 +112,7 @@ const game = {
   },
   addHeat(n){
     this.heat();
-    const resist = 1 - this.auxEffect("coolfan") * 0.55;
+    const resist = (1 - this.auxEffect("coolfan") * 0.55) * (1 - this.perkEffect("heatresist"));
     this.state.modemHeat = Math.min(120, this.state.modemHeat + n * resist);
     this.save();
   },
@@ -124,7 +129,7 @@ const game = {
     const r = this.state.run;
     if(!r || r.billFree) return 0;
     const sec = (Date.now() - r.billStart) / 1000;
-    return Math.round(sec * this.phoneRatePerSec());
+    return Math.round(sec * this.phoneRatePerSec() * (1 - this.perkEffect("billcut")));
   },
   settleBill(){
     const r = this.state.run;
@@ -289,10 +294,135 @@ const game = {
     return out;
   },
 
+  /* ---- プレステージ (回線解約 → 再契約) ---- */
+  prestigeAvailable(){ return this.state.maxTier >= 8; },
+  prestigeGain(){
+    // maxTier と累計収入から算出
+    const s = this.state.stats;
+    const tierPts = Math.max(0, this.state.maxTier - 6) * 3;
+    const earnPts = Math.floor(Math.pow(s.totalEarned / 1e6, 0.5));
+    const dexPts  = Math.floor((s.distinctFiles ? Object.keys(s.distinctFiles).length : 0) / 8);
+    return tierPts + earnPts + dexPts;
+  },
+  doPrestige(){
+    if(!this.prestigeAvailable()) return false;
+    const gain = this.prestigeGain();
+    const keep = {
+      achUnlocked: this.state.achUnlocked,
+      tutorialSeen: true, tutHints: this.state.tutHints,
+      soundOffed: this.state.soundOffed, crtOffed: this.state.crtOffed, radioOffed: this.state.radioOffed,
+      wallpaper: this.state.wallpaper, bgm: this.state.bgm, installed: this.state.installed,
+      stats: this.state.stats,
+      prestige: {
+        points: this.state.prestige.points + gain,
+        perks: this.state.prestige.perks,
+        count: this.state.prestige.count + 1
+      }
+    };
+    const fresh = this.defaultState();
+    Object.assign(fresh, {
+      achUnlocked: keep.achUnlocked, tutorialSeen: true, tutHints: keep.tutHints,
+      soundOffed: keep.soundOffed, crtOffed: keep.crtOffed, radioOffed: keep.radioOffed,
+      wallpaper: keep.wallpaper, bgm: keep.bgm, installed: keep.installed,
+      prestige: keep.prestige, stats: keep.stats
+    });
+    fresh.stats.prestigeCount = keep.prestige.count;
+    // プレステージperk: 初期資金
+    const seed = this.perkLevel("seedmoney");
+    if(seed > 0) fresh.money = [0,5000,50000,500000][seed] || 0;
+    this.state = fresh;
+    this.save();
+    checkAchievements();
+    return gain;
+  },
+  perkLevel(k){ return (this.state.prestige && this.state.prestige.perks[k]) || 0; },
+  perkEffect(k){
+    const lv = this.perkLevel(k);
+    return lv > 0 ? PRESTIGE_PERKS[k].levels[lv-1] : 0;
+  },
+  buyPerk(k){
+    const def = PRESTIGE_PERKS[k];
+    const lv = this.perkLevel(k);
+    if(lv >= def.levels.length) return false;
+    const cost = def.cost[lv];
+    if(this.state.prestige.points < cost) return false;
+    this.state.prestige.points -= cost;
+    this.state.prestige.perks[k] = lv + 1;
+    this.save();
+    checkAchievements();
+    return true;
+  },
+
+  /* ---- BBS アップロード (配布による不労所得) ---- */
+  uploadSlots(){ return 2 + this.state.maxTier + this.perkLevel("slots") * 2; },
+  uploadCount(){ return Object.keys(this.state.uploads).length; },
+  toggleUpload(name){
+    if(this.state.uploads[name]){ delete this.state.uploads[name]; }
+    else {
+      if(this.uploadCount() >= this.uploadSlots()) return false;
+      this.state.uploads[name] = Date.now();
+    }
+    this.save();
+    return true;
+  },
+  uploadRatePerSec(){
+    // アップロード中ファイルの合計レア度 × 係数
+    let sum = 0;
+    for(const n in this.state.uploads){
+      const f = allKnownFiles()[n];
+      sum += f ? RARITY[f.rarity].mult : 1;
+    }
+    const np = MODEMS[this.state.maxTier + 1];
+    const anchor = (np ? np.price : MODEMS[this.state.modemTier].price * 2.2) / 16;
+    return sum * anchor * 0.0009 * (1 + this.perkLevel("slots") * 0.15);
+  },
+  uploadPending(){
+    const dt = Math.max(0, (Date.now() - (this.state.uploadCollectedAt || Date.now())) / 1000);
+    const capped = Math.min(dt, 3600 * 8);   // 最大8時間ぶん
+    return Math.floor(this.state.uploadBank + capped * this.uploadRatePerSec());
+  },
+  collectUpload(){
+    const amt = this.uploadPending();
+    this.state.uploadBank = 0;
+    this.state.uploadCollectedAt = Date.now();
+    if(amt > 0){
+      this.addMoney(amt);
+      this.state.stats.uploadIncome += amt;
+      checkAchievements();
+    }
+    return amt;
+  },
+
   tickPlaytime(sec){
     this.state.stats.playSeconds += sec;
   }
 };
+
+/* プレステージ perk 定義 */
+const PRESTIGE_PERKS = {
+  seedmoney: { name:"開業資金",     icon:"💰", desc:"再契約時の初期資金",         cost:[2,5,12],  levels:[5000,50000,500000] },
+  heatresist:{ name:"耐熱基板",     icon:"🧊", desc:"モデム発熱を恒久的に軽減",   cost:[3,6],     levels:[0.25,0.45] },
+  billcut:   { name:"料金プラン交渉",icon:"📞", desc:"通話料を恒久的に割引",       cost:[3,7],     levels:[0.2,0.4] },
+  dialasst:  { name:"ダイヤル記憶",  icon:"☎", desc:"AP番号の先頭が常に省略される",cost:[4],      levels:[3] },
+  dlboost:   { name:"回線チューン",  icon:"🚀", desc:"DL速度が恒久的にアップ",     cost:[4,8],     levels:[0.12,0.22] },
+  luckboost: { name:"目利き",       icon:"🍀", desc:"レア出現率が恒久的にアップ", cost:[4,8],     levels:[0.15,0.3] },
+  slots:     { name:"転送帯域",     icon:"🖧", desc:"アップロード枠+2 & 配布収入増",cost:[3,6,10], levels:[1,2,3] }
+};
+
+function allKnownFiles(){
+  if(allKnownFiles._c) return allKnownFiles._c;
+  const map = {};
+  FILES.forEach(f=> map[f.name] = f);
+  VIRUS_FILES.forEach(f=> map[f.name] = f);
+  CHAIN_FILES.forEach(f=> map[f.name] = f);
+  Object.keys(SIGNATURE_FILES).forEach(id=>{
+    const sf = SIGNATURE_FILES[id];
+    map[sf.name] = Object.assign({ era:(ISPS.find(p=>p.id===id)||{}).era||"bbs" }, sf);
+  });
+  Object.keys(SECRET_FILES).forEach(k=> map[SECRET_FILES[k].name] = SECRET_FILES[k]);
+  allKnownFiles._c = map;
+  return map;
+}
 
 /* ============================================================
    経済・確率ヘルパ
@@ -353,10 +483,14 @@ function pickFile(isp){
     const cp = CHAIN_FILES.filter(c=> Math.abs(eraIndex(c.era) - ei) <= 1);
     if(cp.length) return Object.assign({}, cp[Math.floor(Math.random()*cp.length)]);
   }
+  if(Math.random() < 0.03){
+    return { name:"junk_hardware_lot", kb:1, era:game.modem().era, rarity:"uncommon", part:true };
+  }
 
   // rarity 抽選 (ISP luck で上振れ)
   let luck = isp ? isp.luck : 1;
   if(ispHasMod(isp, "e_lucky")) luck *= 1.35;
+  if(game.perkEffect("luckboost")) luck *= (1 + game.perkEffect("luckboost"));
   let roll = Math.random() * 100 / luck;
   if(ispHasMod(isp, "e_under")) roll *= 0.55;   // アングラ: レア以上が出やすい
   let rk;
@@ -388,7 +522,7 @@ function effectiveBps(){
   const modemBps = r.modem.bps;
   const ispMod = r.isp ? r.isp.speed : 1;
   const nego = 0.5 + r.negoQuality * 0.9;      // 0.5〜1.4
-  return modemBps * ispMod * nego;
+  return modemBps * ispMod * nego * (1 + game.perkEffect("dlboost"));
 }
 
 /* ============================================================

@@ -355,6 +355,19 @@ body{
 .res-unpack-row{ font-size:11px; display:flex; justify-content:space-between; padding:2px 4px; border-bottom:1px dotted #c8c4b8; }
 .res-unpack-row b{ color:#1a7d1a; }
 .hs-infected{ color:#d06aff; font-weight:bold; animation:heatBlink .7s steps(2) infinite; }
+.res-haggle-info{ font-size:12px; margin:4px 0; }
+.haggle{ background:#1a1a1a; color:#dcd; border:1px solid #555; padding:10px; margin:6px 0; }
+.haggle-line{ font-size:12px; margin-bottom:8px; }
+.haggle-row{ display:flex; align-items:center; gap:8px; font-size:11px; margin-bottom:8px; }
+.haggle-row input{ flex:1; }
+.haggle-msg{ font-size:11px; color:#e0a53a; min-height:14px; margin-top:6px; }
+.dex-upbar{ font-size:11px; background:#000; color:#5adc8c; border:2px inset #2a2a2a; padding:6px 8px; margin-bottom:6px; }
+.dex-upbar b{ color:#fff; }
+.dex-upbar-note{ display:block; color:#5a8c6c; margin-top:2px; }
+.dex-up{ font-family:inherit; font-size:9px; cursor:pointer; background:#dcdcd4; border:1px solid #999; padding:2px 5px; flex-shrink:0; }
+.dex-up.on{ background:#3a9ce0; color:#fff; border-color:#1a6ab0; }
+.desk-upstat{ align-items:center; }
+.desk-up-collect{ font-size:10px; padding:2px 6px; margin-left:6px; }
 
 /* ---------- no carrier ---------- */
 #noCarrierScreen{ background:#120404; }

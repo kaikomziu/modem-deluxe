@@ -283,6 +283,7 @@ const SIGNATURE_FILES = {
 /* ---------- ファイル種別判定 (使う / 解凍) ---------- */
 function fileKind(f){
   const n = (f.name || "").toLowerCase();
+  if(f.part) return "part";
   if(f.virus) return "virus";
   if(f.chain) return "chain";
   if(/\.(zip|lzh|tar\.gz|tgz|7z|iso|rar)$/.test(n)) return "archive";
