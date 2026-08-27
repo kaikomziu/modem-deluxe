@@ -250,7 +250,22 @@ const ACHIEVEMENTS = [].concat(
     check:(s)=> game.state.screenColors === "16" },
   tierAch("burn","burnMax",[0.15,0.3],
     (n)=> n>=0.3 ? "焼き付いた画面" : "焼き付きの兆候",
-    (n)=> `デスクトップを放置しすぎて画面が焼き付いた。スクリーンセーバーを使いなさい。`, true)
+    (n)=> `デスクトップを放置しすぎて画面が焼き付いた。スクリーンセーバーを使いなさい。`, true),
+
+  // --- バッチ5: 付属アプリ ---
+  tierAch("mine","minesweeperWins",[1,10,50],
+    (n)=> n===1 ? "マインスイーパ初勝利" : `地雷処理班 ${n}`,
+    (n)=> `マインスイーパを${n}回クリアした。`),
+  { id:"sp_minefast", name:"熟練の地雷処理", desc:"マインスイーパを60秒以内にクリアした。", hidden:true,
+    check:(s)=> s.minesweeperBest && s.minesweeperBest <= 60 },
+  tierAch("mem","memoryWins",[1,10,50],
+    (n)=> n===1 ? "神経衰弱クリア" : `記憶力の達人 ${n}`,
+    (n)=> `神経衰弱を${n}回クリアした。`),
+  tierAch("paint","paintSaved",[1,5,20],
+    (n)=> n===1 ? "はじめての作品" : `ドット絵師 ${n}`,
+    (n)=> `ペイントで絵を${n}枚保存した。`),
+  { id:"sp_artwall", name:"自作の壁紙", desc:"自分で描いた絵を壁紙にした。", hidden:false,
+    check:(s)=> game.state.wallpaper && /^my_art_/.test(game.state.wallpaper) }
 );
 
 // _hiddenSize / _distinctSize は疑似 stat。checkの直前に埋める。

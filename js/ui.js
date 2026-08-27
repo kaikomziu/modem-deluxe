@@ -62,6 +62,18 @@ const UI = (function(){
 
   /* ---------- デスクトップ ---------- */
   function wallpaperStyle(name){
+    // 自作ペイントアート
+    if(game.state.paintArt && game.state.paintArt[name]){
+      const art = game.state.paintArt[name];
+      const N = Math.sqrt(art.px.length) | 0;
+      let rects = "";
+      art.px.forEach((c,i)=>{
+        const col = c < 0 ? "#ffffff" : art.pal[c];
+        rects += `<rect x='${i%N}' y='${(i/N)|0}' width='1' height='1' fill='${col}'/>`;
+      });
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${N} ${N}'>${rects}</svg>`;
+      return `background:url(data:image/svg+xml,${encodeURIComponent(svg)}) center/cover; image-rendering:pixelated;`;
+    }
     let h = 0; for(const c of name) h = (h*33 + c.charCodeAt(0)) >>> 0;
     const a = h % 360, b = (h >> 8) % 360, t = (h >> 4) % 4;
     if(t === 0) return `background:linear-gradient(${h%360}deg,hsl(${a} 45% 30%),hsl(${b} 45% 18%));`;

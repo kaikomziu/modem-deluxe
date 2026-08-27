@@ -27,6 +27,10 @@ const PC = (function(){
               <div class="start-item" data-sm="upgrade">🖧 アップグレード</div>
               <div class="start-item" data-sm="dex">📁 ファイル図鑑</div>
               <div class="start-item" data-sm="ach">🏆 実績</div>
+              <div class="start-sep"></div>
+              <div class="start-item" data-sm="mine">💣 マインスイーパ</div>
+              <div class="start-item" data-sm="memory">🃏 神経衰弱</div>
+              <div class="start-item" data-sm="paint">🎨 ペイント</div>
             </div>
           </div>
           <div class="start-item" data-sm="dos">🖥 MS-DOS プロンプト</div>
@@ -79,6 +83,9 @@ const PC = (function(){
         if(document.getElementById("crt").classList.contains("crt-off")){ game.state.stats.crtOffed = true; game.save(); checkAchievements(); }
         break;
       case "props":    displayProps(); break;
+      case "mine":     Apps.minesweeper(); break;
+      case "memory":   Apps.memory(); break;
+      case "paint":    Apps.paint(); break;
       case "wipe":
         if(confirm("本当にセーブデータを消去しますか? この操作は元に戻せません。")){
           game.reset(); location.reload();

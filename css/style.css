@@ -616,6 +616,35 @@ body{
 .dial-memo{ margin-top:8px; font-size:11px; color:#9fdfb2; }
 .dial-memo-chip{ font-family:inherit; font-size:11px; cursor:pointer; background:#3a2c0d; color:var(--amber); border:1px solid #7a5c20; padding:2px 6px; }
 
+.app-win{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-shadow) var(--win-shadow) var(--win-hi);
+  box-shadow:3px 3px 14px rgba(0,0,0,.6); color:#000; max-width:94vw; max-height:90vh; overflow:auto; }
+.ms-top{ display:flex; justify-content:space-between; align-items:center; padding:6px; background:#c0c0c0; border-bottom:1px solid #888; }
+.ms-count{ font-family:"MS Gothic",monospace; background:#000; color:#f00; padding:2px 6px; font-weight:bold; }
+.ms-face{ font-size:18px; border:2px outset #ddd; background:#c0c0c0; cursor:pointer; padding:1px 4px; }
+.ms-grid{ display:grid; gap:0; padding:6px; }
+.ms-cell{ width:24px; height:24px; font-size:13px; font-weight:bold; font-family:"MS Gothic",monospace;
+  border:2px outset #d8d8d8; background:#c0c0c0; cursor:pointer; padding:0; line-height:1; }
+.ms-cell.rev{ border:1px solid #999; background:#bdbdbd; cursor:default; }
+.ms-cell.rev.mine{ background:#e0483a; }
+.ms-cell.n1{ color:#0000ff; } .ms-cell.n2{ color:#008000; } .ms-cell.n3{ color:#ff0000; }
+.ms-cell.n4{ color:#000080; } .ms-cell.n5{ color:#800000; } .ms-cell.n6{ color:#008080; }
+.ms-msg{ text-align:center; padding:6px; font-weight:bold; }
+.ms-msg.bad{ color:#c00; }
+.mem-top{ padding:6px 8px; font-size:12px; }
+.mem-grid{ display:grid; grid-template-columns:repeat(4,52px); gap:5px; padding:8px; }
+.mem-card{ width:52px; height:52px; font-size:22px; cursor:pointer; background:#000082; color:#000082;
+  border:2px outset #4a4ac0; }
+.mem-card.up{ background:#fff; color:#000; }
+.mem-card.done{ background:#c8f0c8; }
+.paint-body{ padding:8px; }
+.paint-canvas{ display:grid; gap:0; border:2px inset #888; background:#fff; width:max-content; cursor:crosshair; touch-action:none; }
+.pt-px{ width:14px; height:14px; display:block; }
+.paint-pal{ display:grid; grid-template-columns:repeat(8,22px); gap:2px; margin:8px 0; }
+.pt-sw{ width:22px; height:22px; border:2px solid #888; cursor:pointer; padding:0; }
+.pt-sw.on{ border-color:#000082; }
+.paint-actions{ display:flex; gap:6px; }
+
 .dos-win{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   width:min(600px,94vw); height:min(420px,80vh); display:flex; flex-direction:column;
   background:#000; border:2px solid; border-color:var(--win-hi) var(--win-shadow) var(--win-shadow) var(--win-hi);

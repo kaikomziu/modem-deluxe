@@ -21,6 +21,7 @@ const game = {
       parts: 0,
       learnedDials: {}, burnIn: 0,
       screenColors: "full", bgColor: "teal",
+      paintArt: {}, iconPos: {}, trash: {},
       achUnlocked: {},
       // ラン中の一時データ
       run: null,
