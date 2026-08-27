@@ -95,21 +95,24 @@ const Handshake = (function(){
     let target = hasM("d_fixed")
       ? fixedApNumber(r.isp, len)
       : randDigits(len);
+    // 短縮ダイヤル/ダイヤル記憶: プレフィックスは「自動入力済み」として扱い、
+    // プレイヤーが押すのは target 部分だけ。表示も target のみ(混乱防止)。
     const prefillStr = prefill > 0 ? genPrefill(prefill) : "";
-    const dispTarget = formatNum(prefillStr + target);
+    const dispTarget = formatNum(target);
 
-    let entered = "", manual = false, manualStr = "", finished = false;
+    let entered = "", manual = false, manualStr = "", finished = false, wrongCount = 0;
     let busyLeft = hasM("d_busy") ? (1 + Math.floor(Math.random()*2)) : 0;
 
     stageTitleEl.textContent = "① 番号ダイヤル";
     stageHintEl.textContent = hasM("d_fixed")
       ? "このプロバイダのAP番号は固定。いつもの番号を正確に。"
       : hasM("d_long") ? "このプロバイダはAP番号が長い。落ち着いて正確に。"
-      : "アクセスポイントの番号を正確に。押し間違えると話中音でやり直し。";
+      : "表示された番号をそのまま押す。押し間違えると話中音でやり直し。";
     stageEl.innerHTML = `
       <div class="dial-wrap">
-        <div class="dial-target">${hasM("d_fixed")?"登録済みAP":"アクセスポイント"}: <b id="dialTargetNum">${dispTarget}</b></div>
-        <div class="dial-readout" id="dialReadout">${prefillStr ? formatNum(prefillStr) : "_"}</div>
+        <div class="dial-target">${hasM("d_fixed")?"登録済みAP":"ダイヤルする番号"}: <b id="dialTargetNum">${dispTarget}</b>
+          ${prefillStr ? `<span class="dial-prefix">（市外局番 ${formatNum(prefillStr)} は入力済み）</span>` : ""}</div>
+        <div class="dial-readout" id="dialReadout">_</div>
         <div class="dial-status" id="dialStatus">受話器を上げてダイヤルしてください</div>
         <div class="keypad">
           ${["1","2","3","4","5","6","7","8","9","*","0","#"].map(k=>`<button class="key" data-k="${k}">${k}</button>`).join("")}
@@ -129,7 +132,7 @@ const Handshake = (function(){
     const targEl  = stageEl.querySelector("#dialTargetNum");
 
     function redraw(){
-      const full = manual ? manualStr : (prefillStr + entered);
+      const full = manual ? manualStr : entered;
       readout.textContent = full ? formatNum(full) : "_";
     }
 
@@ -200,7 +203,8 @@ const Handshake = (function(){
       Sound.resume(); Sound.dtmf(k);
       if(manual){ if(manualStr.length < 12){ manualStr += k; redraw(); } return; }
       if(k === target[entered.length]){
-        entered += k; redraw();
+        entered += k; wrongCount = 0; redraw();
+        if(status.textContent.indexOf("違います") >= 0) status.textContent = "ダイヤル中…";
         if(entered.length === target.length){
           if(busyLeft > 0){
             busyLeft--;
@@ -217,12 +221,23 @@ const Handshake = (function(){
           else proceed();
         }
       } else {
-        r.dialErrors++; r.perfectSoFar = false; game.state.stats.busyRetries++;
-        entered = ""; redraw();
-        Sound.stopDialTone(); Sound.busy();
-        status.textContent = "── お話し中です。かけ直します ──";
-        targBox.classList.add("flash-bad");
-        T(()=>{ targBox.classList.remove("flash-bad"); if(!finished){ status.textContent = "ダイヤルを続けてください"; Sound.startDialTone(); } }, 900);
+        r.dialErrors++; r.perfectSoFar = false;
+        wrongCount++;
+        Sound.error();
+        readout.classList.add("flash-bad");
+        T(()=> readout.classList.remove("flash-bad"), 250);
+        if(wrongCount >= 3){
+          // 3回間違えると話中でやり直し
+          wrongCount = 0;
+          game.state.stats.busyRetries++;
+          entered = ""; redraw();
+          Sound.stopDialTone(); Sound.busy();
+          status.textContent = "── お話し中です。かけ直します ──";
+          targBox.classList.add("flash-bad");
+          T(()=>{ targBox.classList.remove("flash-bad"); if(!finished){ status.textContent = "ダイヤルを続けてください"; Sound.startDialTone(); } }, 800);
+        } else {
+          status.textContent = "その番号は違います（あと " + (3 - wrongCount) + " 回まで）";
+        }
       }
     }
 
