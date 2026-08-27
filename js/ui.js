@@ -10,6 +10,16 @@ const UI = (function(){
       if(el) el.classList.toggle("active", s === name);
     });
     document.body.dataset.screen = name;
+    if(typeof PC !== "undefined"){ name === "desktop" ? PC.armDesktop() : PC.disarm(); }
+  }
+
+  function powerOff(){
+    if(typeof PC !== "undefined") PC.disarm();
+    const crt = document.getElementById("crt");
+    crt.classList.remove("power-on");
+    Sound.tone(180, 0.15, "sine", 0.15);
+    Sound.tone(70, 0.5, "sine", 0.15);
+    boot();
   }
 
   /* ---------- 起動 (CRT電源ON) ---------- */
@@ -79,13 +89,14 @@ const UI = (function(){
         </div>
       </div>
       <div class="taskbar">
-        <span class="taskbar-start">🪟 スタート</span>
+        <button class="taskbar-start" id="tbStart">🪟 スタート</button>
         <span class="taskbar-spacer"></span>
         <button class="tb-toggle" id="tbSound">${Sound.isEnabled()?"🔊":"🔇"}</button>
         <button class="tb-toggle" id="tbCrt">📺</button>
         <span class="taskbar-clock" id="tbClock"></span>
       </div>`;
 
+    scr.querySelector("#tbStart").onclick = ()=>{ PC.toggleStartMenu(); };
     scr.querySelector("#deskConnect").onclick = ()=>{ Sound.click(); ispSelect(); };
     scr.querySelector('[data-icon="connect"]').onclick = ()=>{ Sound.click(); ispSelect(); };
     scr.querySelector('[data-icon="upgrade"]').onclick = ()=>{ Sound.click(); openUpgrades(); };
@@ -136,17 +147,21 @@ const UI = (function(){
         <div class="win98-body">
           <p class="isp-lead">どのプロバイダのアクセスポイントにダイヤルしますか?</p>
           <div class="isp-list">
-            ${isps.map(p=>`
+            ${isps.map(p=>{
+              const t = TRAITS[p.trait || "plain"];
+              return `
               <button class="isp-card" data-isp="${p.id}">
-                <div class="isp-name">${p.name}</div>
+                <div class="isp-name">${p.name}
+                  ${p.trait && p.trait!=="plain" ? `<span class="isp-trait">${t.icon} ${t.name}</span>` : ""}</div>
                 <div class="isp-flavor">${p.flavor}</div>
+                ${p.trait && p.trait!=="plain" ? `<div class="isp-trait-desc">▸ ${t.desc}</div>` : ""}
                 <div class="isp-tags">
                   <span>速度 ${mod(p.speed)}</span>
                   <span>ノイズ ${mod(p.noise, true)}</span>
                   <span>話中 ${Math.round(p.busy*100)}%</span>
                   <span>当たり ${mod(p.luck)}</span>
                 </div>
-              </button>`).join("")}
+              </button>`;}).join("")}
           </div>
         </div>
       </div>`;
@@ -316,7 +331,7 @@ const UI = (function(){
   return {
     showScreen, boot, desktop, ispSelect,
     setHandshakeHeader, showConnectFlash, showNoCarrier, showDownloadResult,
-    openAchievements, openChangelog, openDex, openUpgrades, closeModal,
+    openAchievements, openChangelog, openDex, openUpgrades, closeModal, powerOff,
     banner, refreshMoney
   };
 })();

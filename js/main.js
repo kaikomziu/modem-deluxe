@@ -24,6 +24,14 @@
     const wake = ()=>{ Sound.resume(); document.removeEventListener("pointerdown", wake); };
     document.addEventListener("pointerdown", wake);
 
+    // Esc: 開いているオーバーレイを閉じる
+    document.addEventListener("keydown", (e)=>{
+      if(e.key !== "Escape") return;
+      if(document.getElementById("modalLayer").classList.contains("active")){ UI.closeModal(); return; }
+      const pc = document.getElementById("pcLayer");
+      if(pc.classList.contains("active") && !document.querySelector(".bsod")){ pc.innerHTML = ""; pc.classList.remove("active"); }
+    });
+
     updateAchBadge();
     UI.boot();
   }

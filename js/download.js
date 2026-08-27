@@ -28,13 +28,19 @@ const Download = (function(){
     const eraIdx = eraIndex(r.modem.era);
     const longThreshold = [22, 30, 40, 70, 999][eraIdx];
 
+    const tr = ispTrait(r.isp);
     st = {
-      file, bps, duration, longThreshold,
+      file, bps, duration, longThreshold, trait: tr,
       progress: 0, elapsed: 0, corruption: 0,
       speedMul: 1, slowUntil: 0,
-      noiseTimer: 2 + Math.random()*2,
+      noiseTimer: (2 + Math.random()*2) * (tr === "stable" ? 1.8 : 1),
       activeNoise: null,
       weatherRolled: false,
+      fragileRolled: false,
+      adTimer: tr === "adware" ? (2.5 + Math.random()*2) : 999,
+      activeAds: [],
+      capDone: (tr !== "datacap"),
+      capThrottled: false,
       finished: false
     };
 
@@ -98,7 +104,8 @@ const Download = (function(){
     // 速度倍率 (スローダウン回復)
     if(st.slowUntil > 0 && st.elapsed > st.slowUntil){ st.speedMul = 1; st.slowUntil = 0; }
 
-    st.progress += (dt / st.duration) * st.speedMul;
+    const capMul = st.capThrottled ? 0.25 : 1;
+    st.progress += (dt / st.duration) * st.speedMul * (st.adMul || 1) * capMul;
     st.progress = Math.min(1, st.progress);
 
     // ノイズ発生
@@ -112,6 +119,34 @@ const Download = (function(){
     if(st.activeNoise){
       st.activeNoise.ttl -= dt;
       if(st.activeNoise.ttl <= 0) missNoise();
+    }
+
+    // 広告つき無料プロバイダ: 広告ポップアップ
+    if(st.trait === "adware"){
+      st.adTimer -= dt;
+      if(st.adTimer <= 0 && st.activeAds.length < 3 && st.progress < 0.95){
+        spawnAd();
+        st.adTimer = 2.6 + Math.random()*2.4;
+      }
+      // 未処理の広告が多いほど速度低下
+      const adDrag = 1 - Math.min(0.55, st.activeAds.length * 0.2);
+      st.adMul = adDrag;
+    } else st.adMul = 1;
+
+    // 容量制限プロバイダ: 55%で通信制限
+    if(!st.capDone && st.progress > 0.55){
+      st.capDone = true;
+      st.capThrottled = true;
+      showCapBanner();
+      Sound.error();
+    }
+
+    // 攻めの高速プロバイダ: 65%で突然死ロール
+    if(st.trait === "fragile" && !st.fragileRolled && st.progress > 0.65){
+      st.fragileRolled = true;
+      if(Math.random() < 0.14 && Math.random() >= game.auxEffect("surge")){
+        return disconnect("回線が不安定で、前触れなく切断された");
+      }
     }
 
     // 天候による切断チェック (40%地点で1回)
@@ -146,6 +181,8 @@ const Download = (function(){
     els.eta.textContent = "残り " + mmss(etaSec);
     let s = `接続時間: ${Math.floor(st.elapsed)} 秒`;
     if(st.corruption > 0) s += `　/　破損 ${Math.round(st.corruption*100)}%`;
+    if(st.capThrottled) s += "　📵 速度制限中";
+    if(st.activeAds && st.activeAds.length) s += `　🎯 広告 ${st.activeAds.length}`;
     if(longRisk > 0) s += "　⚠ 長時間接続 — 回線が不安定";
     els.status.textContent = s;
     document.getElementById("downloadScreen").classList.toggle("shake-lite", longRisk > 0.02);
@@ -186,6 +223,50 @@ const Download = (function(){
     Sound.error();
   }
 
+  /* ---- 広告 (adware プロバイダ) ---- */
+  function spawnAd(){
+    const layer = els.noiseLayer;
+    const el = document.createElement("div");
+    el.className = "dl-ad";
+    const pitch = ["🎁 おめでとう!<br>1000000人目の訪問者", "💰 あなたは当選しました",
+      "📢 今すぐクリック", "🖱 このボタンを押すな", "🔥 激安モデム 通販", "💊 回線が速くなる方法"];
+    el.innerHTML = `<div class="dl-ad-bar"><span>広告</span><button class="dl-ad-x">✕</button></div>
+      <div class="dl-ad-body">${pitch[Math.floor(Math.random()*pitch.length)]}</div>`;
+    el.style.left = (5 + Math.random()*55) + "%";
+    el.style.top  = (5 + Math.random()*55) + "%";
+    layer.appendChild(el);
+    Sound.tone(880, 0.05, "square", 0.08);
+    const obj = { el };
+    el.querySelector(".dl-ad-x").onclick = ()=>{
+      Sound.click();
+      el.remove();
+      st.activeAds = st.activeAds.filter(a=> a !== obj);
+      game.state.stats.adsClosed = (game.state.stats.adsClosed||0) + 1;
+      checkAchievements();
+    };
+    st.activeAds.push(obj);
+  }
+
+  /* ---- 容量制限 (datacap プロバイダ) ---- */
+  function showCapBanner(){
+    const layer = els.noiseLayer;
+    const el = document.createElement("div");
+    el.className = "dl-cap";
+    const cost = Math.max(50, Math.round((MODEMS[game.state.modemTier+1]?MODEMS[game.state.modemTier+1].price:100000)/400));
+    el.innerHTML = `<div>📵 通信速度制限中（激遅）</div>
+      <button class="win98-btn" id="dlCapBuy">追加チャージ (${formatMoney(cost)})</button>`;
+    layer.appendChild(el);
+    el.querySelector("#dlCapBuy").onclick = ()=>{
+      if(game.state.money < cost){ Sound.error(); return; }
+      game.addMoney(-cost);
+      st.capThrottled = false;
+      el.remove();
+      Sound.coin(); Sound.ok();
+      game.state.stats.dataCharges = (game.state.stats.dataCharges||0) + 1;
+      checkAchievements();
+    };
+  }
+
   /* ---- 終了 ---- */
   function complete(){
     running = false;
@@ -207,6 +288,7 @@ const Download = (function(){
   function clearNoise(){
     if(els.noiseLayer) els.noiseLayer.innerHTML = "";
     st.activeNoise = null;
+    st.activeAds = [];
   }
 
   function finish(completion, ok, reason){

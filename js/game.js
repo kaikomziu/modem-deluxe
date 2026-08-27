@@ -9,7 +9,8 @@ const game = {
   defaultState(){
     return {
       money: 0,
-      modemTier: 0,
+      modemTier: 0,   // 現在使用中の回線
+      maxTier: 0,      // 購入済みの最高回線
       aux: { autotrack:0, speeddial:0, noisefilter:0, timeext:0, surge:0 },
       soundOffed:false, crtOffed:false,
       tutorialSeen:false, tutHints:{},
@@ -21,16 +22,18 @@ const game = {
         filesByRarity:{ common:0, uncommon:0, rare:0, legendary:0, secret:0 },
         perfectDials:0, perfectHandshakes:0,
         negotiationMax:0, oneShotNego:0,
-        totalEarned:0, money:0, modemTier:0,
+        totalEarned:0, money:0, modemTier:0, maxTier:0,
         weatherConnects:{ clear:0, cloudy:0, rain:0, storm:0, snow:0, fog:0 },
         hour0:0, hour3:0, hour12:0,
         hiddenFound:{}, secretUnlocked:{},
-        distinctFiles:{},
+        distinctFiles:{}, ispsUsed:{},
         corruptedFiles:0, noiseCleared:0, weatherSaved:0, busyRetries:0,
+        adsClosed:0, dataCharges:0, retroConnects:0,
         sessionsPlayed:0, maxStreak:0, streak:0,
         playSeconds:0,
         couplerConnects:0, rawStormConnect:false, wentBrokeAndDialed:false,
-        gotArchiveOfWeb:false
+        gotArchiveOfWeb:false,
+        startMenuOpened:false, dosUsed:false, bsod:false, konami:false
       }
     };
   },
@@ -48,6 +51,8 @@ const game = {
       this.state = this.defaultState();
     }
     this.state.run = null;
+    // 旧セーブ互換: maxTier が無ければ現在の tier を最高とみなす
+    this.state.maxTier = Math.max(this.state.maxTier || 0, this.state.modemTier || 0);
     this.state.stats.sessionsPlayed++;
     this.state.stats.streak = 0;
     this.save();
@@ -57,6 +62,7 @@ const game = {
     const s = this.state;
     s.stats.money = s.money;
     s.stats.modemTier = s.modemTier;
+    s.stats.maxTier = s.maxTier;
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }catch(e){}
   },
 
@@ -82,17 +88,26 @@ const game = {
   },
 
   /* ---- モデム購入 ---- */
+  nextModem(){ return MODEMS[this.state.maxTier + 1]; },
   canBuyModem(){
-    const next = MODEMS[this.state.modemTier + 1];
+    const next = this.nextModem();
     return next && this.state.money >= next.price;
   },
   buyModem(){
-    const next = MODEMS[this.state.modemTier + 1];
+    const next = this.nextModem();
     if(!next || this.state.money < next.price) return false;
     this.state.money -= next.price;
-    this.state.modemTier++;
+    this.state.maxTier++;
+    this.state.modemTier = this.state.maxTier;   // 買ったら自動で切替
     this.save();
     checkAchievements();
+    return true;
+  },
+  /* ---- 使用する回線を切り替え (購入済みのみ) ---- */
+  setActiveTier(t){
+    if(t < 0 || t > this.state.maxTier) return false;
+    this.state.modemTier = t;
+    this.save();
     return true;
   },
 
@@ -149,6 +164,8 @@ const game = {
     if(h === 12) s.hour12++;
 
     if(this.state.modemTier === 0) s.couplerConnects++;
+    if(this.state.modemTier < this.state.maxTier) s.retroConnects++;
+    if(r.isp) s.ispsUsed[r.isp.id] = (s.ispsUsed[r.isp.id] || 0) + 1;
 
     if(r.perfectSoFar && r.dialErrors === 0 && r.carrierMisses === 0){
       s.perfectHandshakes++;
@@ -204,20 +221,20 @@ function fileValue(file, completion, run){
   const sizeFlavor = 0.5 + Math.min(1.5, Math.log10(file.kb + 10) / 3); // 0.7〜2.0
 
   let v = anchor * rar * negoMult * compMult * sizeFlavor;
+  if(run && ispTrait(run.isp) === "underground" && file.rarity === "common") v *= 0.4;
   return Math.max(1, Math.round(v));
 }
 
 function eraIndex(era){ return ERA_ORDER.indexOf(era); }
 
 function currentEraIsps(){
-  const era = game.modem().era;
-  const ei = eraIndex(era);
-  // 現era + 1つ前のera の ISP を選択肢に
-  return ISPS.filter(p=>{
-    const pi = eraIndex(p.era);
-    return pi === ei || pi === ei - 1;
-  });
+  const ei = eraIndex(game.modem().era);
+  let list = ISPS.filter(p=> eraIndex(p.era) === ei);
+  if(list.length < 3) list = list.concat(ISPS.filter(p=> eraIndex(p.era) === ei - 1));
+  return list;
 }
+
+function ispTrait(isp){ return (isp && isp.trait) || "plain"; }
 
 function pickWeather(){
   return weightedPick(WEATHERS, w=> w.weight);
@@ -227,7 +244,8 @@ function pickFile(isp){
   const ei = eraIndex(game.modem().era);
   // rarity 抽選 (ISP luck で上振れ)
   const luck = isp ? isp.luck : 1;
-  const roll = Math.random() * 100 / luck;
+  let roll = Math.random() * 100 / luck;
+  if(ispTrait(isp) === "underground") roll *= 0.55;   // アングラ: レア以上が出やすい
   let rk;
   if(roll < RARITY.legendary.weight) rk = "legendary";
   else if(roll < RARITY.legendary.weight + RARITY.rare.weight) rk = "rare";

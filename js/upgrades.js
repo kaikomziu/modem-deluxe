@@ -36,13 +36,29 @@ const Upgrades = (function(){
 
   function renderModem(){
     const cur = game.modem();
-    const next = MODEMS[game.state.modemTier + 1];
+    const next = game.nextModem();
     let html = `<div class="up-current">
-        <div class="up-cur-label">現在の回線</div>
+        <div class="up-cur-label">現在使用中の回線</div>
         <div class="up-cur-name">${cur.name}</div>
         <div class="up-cur-sub">${cur.sub}</div>
         <div class="up-cur-meta">最大速度 ${formatBps(cur.bps)} ／ ${cur.mode==="dialup"?"ダイヤルアップ(3段階)":cur.mode==="isdn"?"ISDN(3段階)":cur.mode==="always"?"常時接続(ダイヤル省略)":"常時接続(セッションのみ)"}</div>
       </div>`;
+
+    // 購入済みの回線から使うものを選ぶ (図鑑埋め用に旧回線へ戻せる)
+    if(game.state.maxTier > 0){
+      html += `<div class="up-owned">
+        <div class="up-owned-label">使用する回線を選ぶ</div>
+        <div class="up-owned-list">
+          ${MODEMS.slice(0, game.state.maxTier + 1).map(m=>`
+            <button class="up-owned-item ${m.id===game.state.modemTier?'active':''}" data-tier="${m.id}">
+              <span class="up-road-dot" style="background:${m.color}"></span>
+              <span class="up-owned-name">${m.name}</span>
+              <span class="up-owned-era">${eraLabel(m.era)}</span>
+              ${m.id===game.state.modemTier?'<span class="up-owned-use">使用中</span>':'<span class="up-owned-use dim">使う</span>'}
+            </button>`).join("")}
+        </div>
+      </div>`;
+    }
 
     if(next){
       const afford = game.state.money >= next.price;
@@ -60,18 +76,31 @@ const Upgrades = (function(){
         <div class="up-next-sub">これ以上速い線は、まだ世に無い。</div></div>`;
     }
 
-    html += `<div class="up-roadmap">`;
+    html += `<div class="up-roadmap"><div class="up-roadmap-label">全体マップ</div>`;
     MODEMS.forEach(m=>{
-      const state = m.id < game.state.modemTier ? "past" : m.id === game.state.modemTier ? "now" : "future";
+      const state = m.id === game.state.modemTier ? "now"
+        : m.id <= game.state.maxTier ? "past" : "future";
       html += `<div class="up-road-item ${state}">
         <span class="up-road-dot" style="background:${m.color}"></span>
-        <span class="up-road-name">${m.name}</span>
+        <span class="up-road-name">${m.name}${m.id<=game.state.maxTier&&m.id!==game.state.modemTier?' ✓':''}</span>
         <span class="up-road-era">${eraLabel(m.era)}</span>
       </div>`;
     });
     html += `</div>`;
 
     document.getElementById("upContent").innerHTML = html;
+
+    document.querySelectorAll(".up-owned-item").forEach(b=>{
+      b.onclick = ()=>{
+        const t = +b.dataset.tier;
+        if(t === game.state.modemTier) return;
+        game.setActiveTier(t);
+        Sound.click(); Sound.ok();
+        UI.banner("使用回線を " + game.modem().name + " に切り替えた", "info");
+        renderModem();
+      };
+    });
+
     const btn = document.getElementById("buyModem");
     if(btn) btn.onclick = ()=>{
       if(game.buyModem()){

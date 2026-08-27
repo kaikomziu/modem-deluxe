@@ -67,7 +67,7 @@ const ACHIEVEMENTS = [].concat(
   // モデム到達 (tier 1..16)
   MODEMS.slice(1).map(m=>({
     id:"modem_"+m.id, name:"入手: "+m.name, desc:m.sub, hidden:false,
-    check:(s)=> (s.modemTier >= m.id)
+    check:(s)=> ((s.maxTier||s.modemTier) >= m.id)
   })),
 
   tierAch("storm","weatherConnects.storm",[1,5,20,60],
@@ -122,11 +122,11 @@ const ACHIEVEMENTS = [].concat(
 
   // --- 特殊実績 ---
   { id:"sp_allmodem", name:"全回線制覇", desc:"5Gまで、すべての回線を手に入れた。", hidden:false,
-    check:(s)=> s.modemTier >= 16 },
+    check:(s)=> (s.maxTier||s.modemTier) >= 16 },
   { id:"sp_alwayson", name:"常時接続の衝撃", desc:"ADSLを導入し、ダイヤルという儀式から解放された。", hidden:false,
-    check:(s)=> s.modemTier >= 10 },
+    check:(s)=> (s.maxTier||s.modemTier) >= 10 },
   { id:"sp_fiber", name:"回線速度を気にしない生活", desc:"光回線に到達した。", hidden:false,
-    check:(s)=> s.modemTier >= 13 },
+    check:(s)=> (s.maxTier||s.modemTier) >= 13 },
   { id:"sp_soundoff", name:"…静寂", desc:"接続音を消した。気持ちは分かる。", hidden:true,
     check:(s)=> s.soundOffed },
   { id:"sp_crtoff", name:"平面の世界へ", desc:"CRTエフェクトを切った。", hidden:true,
@@ -148,13 +148,41 @@ const ACHIEVEMENTS = [].concat(
   { id:"sp_coupleronly", name:"カプラで殴り合う", desc:"300bpsモデムのまま接続50回。買い替えなさい。", hidden:true,
     check:(s)=> (s.couplerConnects||0) >= 50 },
   { id:"sp_nofilter_storm", name:"生身で嵐へ", desc:"ノイズフィルタ0のまま雷雨で接続に成功した。", hidden:true,
-    check:(s)=> s.rawStormConnect }
+    check:(s)=> s.rawStormConnect },
+
+  // --- プロバイダ特性 / 回線切替 ---
+  tierAch("isp","_ispsSize",[3,8,14,23],
+    (n)=> n>=23 ? "全プロバイダ制覇" : `プロバイダ行脚 ${n}`,
+    (n)=> `${n}社のプロバイダで接続した。`),
+  tierAch("retro","retroConnects",[1,10,50,150],
+    (n)=> n===1 ? "考古学者" : `レトロ回線の常連 ${n}`,
+    (n)=> `わざと古い回線に切り替えて${n}回接続した(図鑑埋めご苦労さま)。`),
+  tierAch("ads","adsClosed",[1,25,100,500],
+    (n)=> n===1 ? "×ボタン" : `広告ブロッカー ${n}`,
+    (n)=> `ダウンロード中の広告を${n}回閉じた。`, true),
+  tierAch("charge","dataCharges",[1,10,50],
+    (n)=> `課金の沼 ${n}`, (n)=> `通信制限を「追加チャージ」で${n}回解除した。`, true),
+  { id:"sp_telehodai_win", name:"深夜の申し子", desc:"テレホーダイ提携プロバイダで深夜料金帯に接続した。", hidden:true,
+    check:(s)=> s.telehodaiNight },
+  { id:"sp_downgrade", name:"時を戻そう", desc:"最高回線を持っているのに、あえて300bpsで接続した。", hidden:true,
+    check:(s)=> s.couplerConnects > 0 && (s.maxTier||0) >= 5 && s.retroConnects > 0 },
+
+  // --- PC隠し要素 ---
+  { id:"sp_start", name:"スタートはここから", desc:"スタートメニューを開いた。", hidden:true,
+    check:(s)=> s.startMenuOpened },
+  { id:"sp_dos", name:"C:\\>", desc:"MS-DOSプロンプトでコマンドを実行した。", hidden:true,
+    check:(s)=> s.dosUsed },
+  { id:"sp_bsod", name:"青い画面", desc:"ブルースクリーンを拝んだ。", hidden:true,
+    check:(s)=> s.bsod },
+  { id:"sp_konami", name:"↑↑↓↓←→←→BA", desc:"由緒正しいコマンドを入力した。", hidden:true,
+    check:(s)=> s.konami }
 );
 
 // _hiddenSize / _distinctSize は疑似 stat。checkの直前に埋める。
 function achPrepStats(s){
   s._hiddenSize   = s.hiddenFound ? Object.keys(s.hiddenFound).length : 0;
   s._distinctSize = s.distinctFiles ? Object.keys(s.distinctFiles).length : 0;
+  s._ispsSize     = s.ispsUsed ? Object.keys(s.ispsUsed).length : 0;
 }
 
 /* ---------- 判定 & 通知 ---------- */

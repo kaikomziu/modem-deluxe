@@ -38,6 +38,18 @@ const Handshake = (function(){
   }
   function abort(){ active = false; clearAll(); }
 
+  /* ---- プロバイダ特性 ---- */
+  function trait(){ return ispTrait(game.state.run.isp); }
+  function isT(t){ return trait() === t; }
+  function fixedApNumber(isp, digits){
+    let h = 2166136261 >>> 0;
+    for(const c of isp.id) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+    let s = "";
+    for(let i=0;i<digits;i++){ h = (Math.imul(h, 1103515245) + 12345) >>> 0; s += (h % 10); }
+    return s;
+  }
+  function randDigits(n){ let s=""; for(let i=0;i<n;i++) s+=Math.floor(Math.random()*10); return s; }
+
   function start(isp){
     active = true;
     game.startRun(isp);
@@ -57,7 +69,7 @@ const Handshake = (function(){
 
   /* ---- 時間制限バー ---- */
   function runTimer(seconds, onExpire){
-    const total = seconds + game.auxEffect("timeext");
+    const total = seconds + game.auxEffect("timeext") + (isT("stable") ? 3 : 0);
     const t0 = performance.now();
     let fired = false;
     startLoop((dt, now)=>{
@@ -76,18 +88,21 @@ const Handshake = (function(){
     const r = game.state.run;
     const prefill = Math.max(0, Math.min(game.auxEffect("speeddial"), r.modem.digits - 3));
     const len = Math.max(3, r.modem.digits - prefill);
-    let target = "";
-    for(let i=0;i<len;i++) target += Math.floor(Math.random()*10);
+    let target = isT("fixedAP")
+      ? fixedApNumber(r.isp, len)
+      : randDigits(len);
     const prefillStr = prefill > 0 ? genPrefill(prefill) : "";
     const dispTarget = formatNum(prefillStr + target);
 
     let entered = "", manual = false, manualStr = "", finished = false;
 
     stageTitleEl.textContent = "① 番号ダイヤル";
-    stageHintEl.textContent = "アクセスポイントの番号を正確に。押し間違えると話中音でやり直し。";
+    stageHintEl.textContent = isT("fixedAP")
+      ? "このプロバイダのAP番号は固定。いつもの番号を正確に。"
+      : "アクセスポイントの番号を正確に。押し間違えると話中音でやり直し。";
     stageEl.innerHTML = `
       <div class="dial-wrap">
-        <div class="dial-target">アクセスポイント: <b id="dialTargetNum">${dispTarget}</b></div>
+        <div class="dial-target">${isT("fixedAP")?"登録済みAP":"アクセスポイント"}: <b id="dialTargetNum">${dispTarget}</b></div>
         <div class="dial-readout" id="dialReadout">${prefillStr ? formatNum(prefillStr) : "_"}</div>
         <div class="dial-status" id="dialStatus">受話器を上げてダイヤルしてください</div>
         <div class="keypad">
@@ -124,13 +139,66 @@ const Handshake = (function(){
     }
     function afterDial(){ stageCarrier(game.modem().mode === "isdn"); }
 
+    function dialExtraStep(){
+      if(finished) return;
+      clearAll();               // 本ダイヤルのタイマー/キー入力を停止
+      const member = isT("memberID");
+      const code = randDigits(4);
+      let typed = "", hidden = !member;
+      stageTitleEl.textContent = member ? "① 会員認証" : "① 暗証番号";
+      stageHintEl.textContent = member
+        ? "会員IDを入力してログインします。"
+        : "表示された暗証番号を数秒で覚えて入力。";
+      stageEl.innerHTML = `
+        <div class="dial-wrap">
+          <div class="dial-target">${member?"会員ID":"暗証番号"}: <b id="exCode">${code}</b></div>
+          <div class="dial-readout" id="exRead">_</div>
+          <div class="dial-status" id="exStat">${member?"IDを入力してください":"番号を覚えて…"}</div>
+          <div class="keypad">
+            ${["1","2","3","4","5","6","7","8","9","*","0","#"].map(k=>`<button class="key" data-k="${k}">${k}</button>`).join("")}
+          </div>
+          <div class="dial-actions"><button class="key key-wide" id="exBack">⌫ 訂正</button></div>
+        </div>`;
+      const cEl = stageEl.querySelector("#exCode");
+      const rEl = stageEl.querySelector("#exRead");
+      const sEl = stageEl.querySelector("#exStat");
+      if(!member) T(()=>{ cEl.textContent = "＊＊＊＊"; sEl.textContent = "暗証番号を入力してください"; }, 2200);
+
+      function done(){
+        finished = true; clearAll();
+        Sound.ringback(1, ()=>{ if(active) afterDial(); });
+      }
+      function ekey(k){
+        if(finished || typed.length >= 4) return;
+        Sound.dtmf(k);
+        typed += k;
+        rEl.textContent = typed;
+        if(typed.length === 4){
+          if(typed === code){ Sound.ok(); sEl.textContent = "── 認証OK ──"; T(done, 500); }
+          else {
+            Sound.busy(); sEl.textContent = "── 認証エラー。もう一度 ──";
+            r.dialErrors++; r.perfectSoFar = false;
+            typed = ""; T(()=>{ rEl.textContent = "_"; }, 400);
+          }
+        }
+      }
+      stageEl.querySelectorAll(".key[data-k]").forEach(b=> b.onclick = ()=> ekey(b.dataset.k));
+      stageEl.querySelector("#exBack").onclick = ()=>{ Sound.click(); typed = typed.slice(0,-1); rEl.textContent = typed || "_"; };
+      onKey("keydown", (e)=>{ if(/^[0-9*#]$/.test(e.key)) ekey(e.key); else if(e.key==="Backspace"){ typed = typed.slice(0,-1); rEl.textContent = typed || "_"; } });
+      runTimer(12, ()=>{ if(!finished) fail(member ? "会員認証に手間取り切断" : "暗証番号を思い出せず切断"); });
+    }
+
     function press(k){
       if(!active || finished) return;
       Sound.resume(); Sound.dtmf(k);
       if(manual){ if(manualStr.length < 12){ manualStr += k; redraw(); } return; }
       if(k === target[entered.length]){
         entered += k; redraw();
-        if(entered.length === target.length){ Sound.stopDialTone(); proceed(); }
+        if(entered.length === target.length){
+          Sound.stopDialTone();
+          if(!r.hiddenDial && (isT("memberID") || isT("underground"))) dialExtraStep();
+          else proceed();
+        }
       } else {
         r.dialErrors++; r.perfectSoFar = false; game.state.stats.busyRetries++;
         entered = ""; redraw();
@@ -249,31 +317,44 @@ const Handshake = (function(){
     const tier = game.state.modemTier;
     let targetPos = 0.25 + Math.random()*0.5;
     let playerPos = Math.random()<0.5 ? 0.06 : 0.94;
-    const tol = Math.max(0.04, (always ? 0.11 : isDigital ? 0.09 : 0.075) - tier*0.0018);
-    const jitterAmt = (always ? 0.4 : 1) * r.weather.jitter * (1 - game.auxEffect("noisefilter")) * 0.0016;
+    const stableBonus = isT("stable") ? 0.03 : 0;
+    const tol = Math.max(0.04, (always ? 0.11 : isDigital ? 0.09 : 0.075) - tier*0.0018 + stableBonus);
+    const jitterAmt = (always ? 0.4 : 1) * r.weather.jitter * (1 - game.auxEffect("noisefilter")) * (isT("stable") ? 0.7 : 1) * 0.0016;
     const autotrack = game.auxEffect("autotrack");
     let jitterPhase = Math.random()*10, signal = 0;
+    // 高遅延プロバイダ: カーソル操作にラグ (悪天候でさらに)
+    const lagMs = isT("laggy") ? (220 + (r.weather.jitter - 1) * 260) : 0;
+    let lagQueue = [];
 
     Sound.startCarrier(700 + targetPos*1400);
 
     let dragging = false;
+    function setPlayer(v){
+      v = Math.min(1, Math.max(0, v));
+      if(lagMs > 0) lagQueue.push({ at: performance.now() + lagMs, v });
+      else playerPos = v;
+    }
     function fromX(clientX){
       if(done || !scale.isConnected) return;
       const rect = scale.getBoundingClientRect();
       if(!rect.width) return;
-      playerPos = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+      setPlayer((clientX - rect.left) / rect.width);
     }
     scale.addEventListener("pointerdown", e=>{ dragging = true; fromX(e.clientX); try{ scale.setPointerCapture(e.pointerId); }catch(_){} });
     scale.addEventListener("pointermove", e=>{ if(dragging) fromX(e.clientX); });
     scale.addEventListener("pointerup", ()=> dragging = false);
     scale.addEventListener("pointercancel", ()=> dragging = false);
     onKey("keydown", (e)=>{
-      if(e.key === "ArrowLeft")  playerPos = Math.max(0, playerPos - 0.02);
-      if(e.key === "ArrowRight") playerPos = Math.min(1, playerPos + 0.02);
+      if(e.key === "ArrowLeft")  setPlayer(playerPos - 0.02);
+      if(e.key === "ArrowRight") setPlayer(playerPos + 0.02);
     });
 
     startLoop((dt, now)=>{
       if(done) return;
+      if(lagQueue.length){
+        const nowp = performance.now();
+        while(lagQueue.length && lagQueue[0].at <= nowp) playerPos = lagQueue.shift().v;
+      }
       jitterPhase += dt*0.004;
       targetPos += Math.sin(jitterPhase)*jitterAmt + (Math.random()-0.5)*jitterAmt*0.6;
       targetPos = Math.min(0.92, Math.max(0.08, targetPos));
@@ -345,6 +426,7 @@ const Handshake = (function(){
       <div class="nego-wrap">
         <div class="nego-meter">
           <div class="nego-ceiling-hint" id="negoDanger"></div>
+          <div class="nego-marker" id="negoMarker" hidden></div>
           <div class="nego-fill" id="negoFill"></div>
           <div class="nego-scale">${[0,20,40,60,80,100].map(v=>`<span style="bottom:${v}%">${v}</span>`).join("")}</div>
         </div>
@@ -367,8 +449,24 @@ const Handshake = (function(){
     Tutorial.stageHint("nego");
 
     const tier = game.state.modemTier;
-    const ceiling = Math.max(0.4, 0.55 + Math.random()*0.4 - Math.min(0.12, tier*0.006));
+    let ceiling = Math.max(0.4, 0.55 + Math.random()*0.4 - Math.min(0.12, tier*0.006));
+    if(isT("fragile")) ceiling = Math.min(1.0, ceiling + 0.12);
+    if(isT("telehodai")){
+      const h = new Date().getHours();
+      const bonus = (h >= 23 || h < 8);      // 深夜
+      ceiling = Math.max(0.3, Math.min(1.0, ceiling * (bonus ? 1.15 : 0.8)));
+      stageHintEl.textContent += bonus ? "  🌙 深夜料金帯: 限界+15%" : "  ☀ 昼間は自主規制: 限界-20%";
+      if(bonus){ game.state.stats.telehodaiNight = true; game.save(); }
+    }
+    const dangerWindow = isT("fragile") ? 0.07 : 0.16;   // 攻めの高速は警告が遅い
     let rate = 0, holding = false, pushedCount = 0;
+
+    // 限界表示プロバイダ: 目安ラインを描画
+    if(isT("hint")){
+      const mk = stageEl.querySelector("#negoMarker");
+      mk.hidden = false;
+      mk.style.bottom = (ceiling*100) + "%";
+    }
 
     Sound.startHandshake();
 
@@ -387,7 +485,7 @@ const Handshake = (function(){
       rate += holding ? dt*0.00042 : -dt*0.00022;
       rate = Math.max(0, Math.min(1.05, rate));
       const margin = ceiling - rate;
-      const danger = margin < 0.16;
+      const danger = margin < dangerWindow;
 
       fill.style.height = Math.min(100, rate*100) + "%";
       fill.style.background = danger ? "linear-gradient(#e0a53a,#e0483a)" : "linear-gradient(#3ac06a,#3a9ce0)";
@@ -404,8 +502,8 @@ const Handshake = (function(){
       }
       if(danger){
         warnEl.textContent = "⚠ 不安定"; warnEl.className = "nego-warn bad";
-        dangerEl.style.opacity = Math.min(1, (0.16 - margin)/0.16);
-        Sound.handshakeStatic(Math.min(1, (0.16-margin)/0.16));
+        dangerEl.style.opacity = Math.min(1, (dangerWindow - margin)/dangerWindow);
+        Sound.handshakeStatic(Math.min(1, (dangerWindow-margin)/dangerWindow));
         scr.classList.add("shake-lite");
       } else {
         warnEl.textContent = "安定"; warnEl.className = "nego-warn";

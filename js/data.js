@@ -27,25 +27,54 @@ const MODEMS = [
 ];
 
 /* ---------- ISP (era 別、名前はパロディ) ---------- */
+// trait: プロバイダごとの「やることが変わる」特性。1つだけ持つ(なしは "plain")
+const TRAITS = {
+  plain:      { name:"標準",          icon:"◽", desc:"特別な仕掛けはなし。基本の3ステップ。" },
+  memberID:   { name:"会員制",        icon:"🪪", desc:"ダイヤル後に会員ID(4桁)の入力ステップが追加される。" },
+  fixedAP:    { name:"AP番号固定",    icon:"📌", desc:"アクセスポイント番号がいつも同じ。桁は多いが覚えれば楽。" },
+  underground:{ name:"アングラ",      icon:"🕶", desc:"ダイヤル時に暗証番号あり。レア以上が出やすいが常連ファイルは二束三文。" },
+  hint:       { name:"限界表示",      icon:"📐", desc:"レートネゴシエーションで回線の限界ラインがうっすら見える。" },
+  fragile:    { name:"攻めの高速",    icon:"⚡", desc:"ネゴシエーションの限界が高いが、警告が出るのは超ギリギリ。DL中の突然死あり。" },
+  stable:     { name:"鉄板",          icon:"🛡", desc:"全ステージ時間+3秒、ノイズ激減、キャリア検出の許容も広い。当たりは控えめ。" },
+  laggy:      { name:"高遅延",        icon:"🛰", desc:"キャリア検出のカーソル操作にラグ。悪天候でさらに重くなる。" },
+  telehodai:  { name:"テレホーダイ",  icon:"🌙", desc:"23〜8時は限界+15%、9〜22時は限界-20%(昼は自主規制)。" },
+  adware:     { name:"広告つき無料",  icon:"🎯", desc:"DL中に広告(🎁)が降ってくる。消さないと速度が落ちる。話中はほぼ無い。" },
+  datacap:    { name:"容量制限あり",  icon:"📵", desc:"DL中に通信制限が発動して激遅に。『追加チャージ』ボタンで即解除(有料)。" }
+};
+
 const ISPS = [
-  // bbs
-  { id:"pcvam",   name:"PC-VAM",         era:"bbs",       speed:1.0,  noise:1.0, busy:0.10, luck:1.0, flavor:"老舗の草分け。深夜は意外と空いている。" },
-  { id:"niftea",  name:"NIFTEA-Serve",  era:"bbs",       speed:0.95, noise:0.9, busy:0.18, luck:1.15,flavor:"フォーラム文化の総本山。回線は混む。" },
-  { id:"peccoame",name:"ペッコアメ",     era:"bbs",       speed:1.05, noise:1.15,busy:0.06, luck:0.9, flavor:"月額無料の先駆け。品質はお察し。" },
-  // web1
-  { id:"beleave", name:"BeLeave",       era:"web1",      speed:1.0,  noise:1.0, busy:0.12, luck:1.0, flavor:"バランス型。可もなく不可もなく。" },
-  { id:"rimnet",  name:"RIMニャン",     era:"web1",      speed:1.1,  noise:1.1, busy:0.08, luck:1.05,flavor:"技術志向のプロバイダ。速いが荒い。" },
-  { id:"asahai",  name:"ASAHAIネット",  era:"web1",      speed:0.9,  noise:0.8, busy:0.20, luck:1.2, flavor:"新聞社系。安定重視で当たりも多め。" },
-  // web2
-  { id:"soneta",  name:"So-neta",       era:"web2",      speed:1.05, noise:0.95,busy:0.10, luck:1.0, flavor:"ゲーム系コンテンツに強い。" },
-  { id:"ocm",     name:"OCM",           era:"web2",      speed:1.0,  noise:0.85,busy:0.14, luck:1.05,flavor:"電話会社系。とにかく安定。" },
-  { id:"diom",    name:"DIOM",          era:"web2",      speed:1.15, noise:1.2, busy:0.05, luck:0.95,flavor:"攻めの高速サービス。切れる時は切れる。" },
-  // broadband
-  { id:"yahooo",  name:"ヤホーBB",       era:"broadband", speed:1.1,  noise:1.05,busy:0.02, luck:1.1, flavor:"モデムを街頭で配っていた。契約は激増。" },
-  { id:"biglobo", name:"BIGLOBO",       era:"broadband", speed:1.0,  noise:0.9, busy:0.04, luck:1.0, flavor:"総合力。可もなく不可もなく安定。" },
-  // modern
-  { id:"nurort",  name:"NUROひかり風",  era:"modern",    speed:1.2,  noise:0.8, busy:0.01, luck:1.15,flavor:"下り2Gbpsをうたう新興勢力。" },
-  { id:"flets",   name:"フレッツ光風",  era:"modern",    speed:1.0,  noise:0.85,busy:0.02, luck:1.05,flavor:"日本中に張り巡らされた大動脈。" }
+  // ===== bbs (パソコン通信) =====
+  { id:"pcvam",    name:"PC-VAM",        era:"bbs",       speed:1.0,  noise:1.0, busy:0.10, luck:1.0,  trait:"fixedAP",     flavor:"老舗の草分け。番号は昔から変わらない。" },
+  { id:"niftea",   name:"NIFTEA-Serve", era:"bbs",       speed:0.95, noise:0.9, busy:0.16, luck:1.15, trait:"memberID",    flavor:"フォーラム文化の総本山。会員番号を打たされる。" },
+  { id:"peccoame", name:"ペッコアメ",    era:"bbs",       speed:1.05, noise:1.1, busy:0.02, luck:0.9,  trait:"adware",      flavor:"月額無料の先駆け。広告で成り立っている。" },
+  { id:"ekimae",   name:"駅前ネット",    era:"bbs",       speed:1.1,  noise:1.25,busy:0.05, luck:1.1,  trait:"underground", flavor:"個人運営の草の根BBS。妙なファイルが転がっている。" },
+  { id:"asciinet", name:"ASCIInet",     era:"bbs",       speed:0.9,  noise:0.75,busy:0.12, luck:0.95, trait:"stable",      flavor:"技術書系。とにかく落ちない、荒れない。" },
+
+  // ===== web1 (WWW黎明期) =====
+  { id:"beleave",  name:"BeLeave",      era:"web1",      speed:1.0,  noise:1.0, busy:0.12, luck:1.0,  trait:"plain",       flavor:"バランス型。可もなく不可もなく。" },
+  { id:"rimnyan",  name:"RIMニャン",    era:"web1",      speed:1.1,  noise:1.1, busy:0.08, luck:1.05, trait:"hint",        flavor:"技術志向。ネゴシエーションの限界を表示してくれる親切設計。" },
+  { id:"asahai",   name:"ASAHAIネット", era:"web1",      speed:0.9,  noise:0.8, busy:0.18, luck:1.2,  trait:"stable",      flavor:"新聞社系。堅実で当たりも多め。" },
+  { id:"hypernet", name:"ハイパーネット",era:"web1",      speed:1.05, noise:1.15,busy:0.01, luck:1.1,  trait:"adware",      flavor:"広告を見れば接続無料。とにかくバナーがしつこい。" },
+  { id:"infoza",   name:"インフォ座",    era:"web1",      speed:1.0,  noise:0.95,busy:0.1,  luck:1.15, trait:"memberID",    flavor:"大手系。契約者番号でログインする。" },
+
+  // ===== web2 (ブロードバンド前夜) =====
+  { id:"soneta",   name:"So-neta",      era:"web2",      speed:1.05, noise:0.95,busy:0.10, luck:1.0,  trait:"plain",       flavor:"ゲーム系コンテンツに強い。" },
+  { id:"ocm",      name:"OCM",          era:"web2",      speed:1.0,  noise:0.8, busy:0.12, luck:1.05, trait:"stable",      flavor:"電話会社系。石橋を叩いて渡る安定感。" },
+  { id:"diom",     name:"DIOM",         era:"web2",      speed:1.2,  noise:1.2, busy:0.04, luck:0.95, trait:"fragile",     flavor:"攻めの高速サービス。限界は高いが、切れる時は前触れなく切れる。" },
+  { id:"odn2",     name:"ODM",          era:"web2",      speed:1.0,  noise:1.0, busy:0.08, luck:1.0,  trait:"telehodai",   flavor:"テレホーダイ提携。深夜は化けるが昼は自主規制で遅い。" },
+  { id:"pururu",   name:"ぷりり",        era:"web2",      speed:1.05, noise:0.9, busy:0.09, luck:1.1,  trait:"hint",        flavor:"サポート重視。回線の限界をちゃんと教えてくれる。" },
+
+  // ===== broadband (ADSL) =====
+  { id:"yahooo",   name:"ヤホーBB",      era:"broadband", speed:1.15, noise:1.1, busy:0.01, luck:1.1,  trait:"adware",      flavor:"モデムを街頭配布して契約激増。ポータルは広告まみれ。" },
+  { id:"biglobo",  name:"BIGLOBO",      era:"broadband", speed:1.0,  noise:0.9, busy:0.03, luck:1.0,  trait:"stable",      flavor:"総合力。可もなく不可もなく安定。" },
+  { id:"eaccela",  name:"イーアクセラ",  era:"broadband", speed:1.1,  noise:1.05,busy:0.02, luck:1.05, trait:"hint",        flavor:"収容局からの距離が全て。限界ラインは見せてくれる。" },
+  { id:"akkaman",  name:"アッカーマン",  era:"broadband", speed:1.25, noise:1.3, busy:0.02, luck:0.95, trait:"fragile",     flavor:"理論値は爆速。実効速度は運任せ。" },
+
+  // ===== modern (光・現代) =====
+  { id:"nurort",   name:"NUROひかり風",  era:"modern",    speed:1.25, noise:0.9, busy:0.01, luck:1.15, trait:"fragile",     flavor:"下り2Gbpsをうたう新興。ピーク時に不安定になることも。" },
+  { id:"flets",    name:"フレッツ光風",  era:"modern",    speed:1.0,  noise:0.8, busy:0.01, luck:1.05, trait:"stable",      flavor:"日本中に張り巡らされた大動脈。鉄板。" },
+  { id:"kakiten",  name:"柿天モバイル",  era:"modern",    speed:1.1,  noise:1.0, busy:0.01, luck:1.1,  trait:"datacap",     flavor:"使い放題(ただし使いすぎると制限)。" },
+  { id:"tadalink", name:"タダリンク",    era:"modern",    speed:1.05, noise:1.2, busy:0.01, luck:1.2,  trait:"adware",      flavor:"広告視聴で通信量ゼロ円。令和の無料プロバイダ。" }
 ];
 
 /* ---------- ダウンロードできるファイル ---------- */
