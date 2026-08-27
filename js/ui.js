@@ -61,6 +61,7 @@ const UI = (function(){
           ${deskIcon("connect","☎","接続する")}
           ${deskIcon("upgrade","🖧","アップグレード")}
           ${deskIcon("ach","🏆","実績")}
+          ${deskIcon("dex","📁","ファイル図鑑")}
           ${deskIcon("help","❓","遊びかた")}
           ${deskIcon("log","📜","更新履歴")}
         </div>
@@ -89,6 +90,7 @@ const UI = (function(){
     scr.querySelector('[data-icon="connect"]').onclick = ()=>{ Sound.click(); ispSelect(); };
     scr.querySelector('[data-icon="upgrade"]').onclick = ()=>{ Sound.click(); openUpgrades(); };
     scr.querySelector('[data-icon="ach"]').onclick = ()=>{ Sound.click(); openAchievements(); };
+    scr.querySelector('[data-icon="dex"]').onclick = ()=>{ Sound.click(); openDex(); };
     scr.querySelector('[data-icon="help"]').onclick = ()=>{ Sound.click(); Tutorial.open(true); };
     scr.querySelector('[data-icon="log"]').onclick = ()=>{ Sound.click(); openChangelog(); };
     scr.querySelector("#tbSound").onclick = (e)=>{
@@ -279,6 +281,7 @@ const UI = (function(){
   }
   function openAchievements(){ renderAchievements(); openModal("achModal"); }
   function openChangelog(){ renderChangelog(); openModal("changelogModal"); }
+  function openDex(){ Dex.render(); openModal("dexModal"); }
   function openUpgrades(){ Upgrades.render(); showScreen("upgrade"); }
 
   /* ---------- バナー ---------- */
@@ -313,7 +316,7 @@ const UI = (function(){
   return {
     showScreen, boot, desktop, ispSelect,
     setHandshakeHeader, showConnectFlash, showNoCarrier, showDownloadResult,
-    openAchievements, openChangelog, openUpgrades, closeModal,
+    openAchievements, openChangelog, openDex, openUpgrades, closeModal,
     banner, refreshMoney
   };
 })();

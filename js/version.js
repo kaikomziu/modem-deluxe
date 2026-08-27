@@ -1,7 +1,15 @@
 // MODEM DELUXE - 更新履歴
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 
 const CHANGELOG = [
+  {
+    version: "1.2.0",
+    date: "2026-08-28",
+    notes: [
+      "ファイル図鑑を追加(デスクトップの📁アイコン)。全ファイルの入手状況・時代別/レア度別コンプ率を確認できる",
+      "禁断のファイル(隠しダイヤル限定)は発見するまで🔒表示"
+    ]
+  },
   {
     version: "1.1.0",
     date: "2026-08-28",

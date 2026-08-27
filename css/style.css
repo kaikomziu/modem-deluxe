@@ -407,6 +407,32 @@ body{
 .ui-banner.good{ border-color:var(--amber); color:#fff; }
 .ui-banner.info{ border-color:#3a9ce0; }
 
+/* ---------- file dex ---------- */
+.dex-summary{ display:flex; gap:14px; align-items:center; background:var(--paper); border:2px inset #8a8e94; padding:10px; margin-bottom:8px; flex-wrap:wrap; }
+.dex-pct-wrap{ text-align:center; flex-shrink:0; }
+.dex-pct{ font-size:30px; font-weight:bold; color:#000082; line-height:1; }
+.dex-pct small{ font-size:14px; }
+.dex-pct-sub{ font-size:11px; color:#555; margin-top:2px; }
+.dex-bars{ flex:1; min-width:180px; display:flex; flex-direction:column; gap:3px; }
+.dex-bar-row{ display:flex; align-items:center; gap:6px; font-size:10px; }
+.dex-bar-row > span:first-child{ width:52px; flex-shrink:0; font-weight:bold; }
+.dex-bar-row > span:last-child{ width:38px; text-align:right; flex-shrink:0; color:#555; }
+.dex-bar{ flex:1; height:9px; background:#b7bbc0; border:1px solid #8a8e94; }
+.dex-bar-fill{ height:100%; }
+.dex-total{ font-size:12px; margin-bottom:10px; }
+.dex-total b{ color:#000082; }
+.dex-era{ margin-bottom:12px; }
+.dex-era-head{ display:flex; justify-content:space-between; font-size:12px; font-weight:bold; color:#000082; border-bottom:2px solid #000082; padding-bottom:2px; margin-bottom:5px; }
+.dex-card{ display:flex; align-items:center; gap:9px; background:#e9e6da; border:1px solid #b7b3a4; padding:5px 8px; margin-bottom:3px; }
+.dex-card.dex-undiscovered{ opacity:.5; background:#dcdcd4; }
+.dex-card.dex-locked{ opacity:.7; background:#d7d3c7; font-style:italic; }
+.dex-icon{ font-size:18px; flex-shrink:0; }
+.dex-info{ flex:1; min-width:0; }
+.dex-name{ font-size:12px; font-weight:bold; word-break:break-all; }
+.dex-meta{ font-size:10px; color:#666; }
+.dex-count{ font-size:12px; font-weight:bold; color:#1a7d1a; flex-shrink:0; }
+.dex-card.dex-undiscovered .dex-count{ color:#999; font-weight:normal; }
+
 /* ---------- tutorial ---------- */
 .tutorial-layer{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:400; padding:16px; }
 .tutorial-layer.active{ display:flex; }
