@@ -140,28 +140,33 @@ const UI = (function(){
   function ispSelect(){
     showScreen("ispSelect");
     const isps = currentEraIsps();
+    const usableIds = new Set(isps.map(p=> p.id));
+    const curEra = game.modem().era;
+    const otherByEra = {};
+    ISPS.forEach(p=>{ if(!usableIds.has(p.id)){ (otherByEra[p.era] = otherByEra[p.era] || []).push(p); } });
+
     const scr = document.getElementById("ispSelectScreen");
     scr.innerHTML = `
       <div class="win98 isp-window">
         <div class="win98-title"><span>接続先の選択</span><span class="win98-x" id="ispClose">✕</span></div>
         <div class="win98-body">
-          <p class="isp-lead">どのプロバイダのアクセスポイントにダイヤルしますか?</p>
+          <p class="isp-lead">${eraLabelFull(curEra)}に接続できるプロバイダ（全${ISPS.length}社中 ${isps.length}社）。<br>
+            <span class="isp-lead-sub">他の時代のプロバイダは、その回線を購入して「使用する回線」を切り替えると選べます。</span></p>
           <div class="isp-list">
-            ${isps.map(p=>{
-              const t = TRAITS[p.trait || "plain"];
-              return `
-              <button class="isp-card" data-isp="${p.id}">
-                <div class="isp-name">${p.name}
-                  ${p.trait && p.trait!=="plain" ? `<span class="isp-trait">${t.icon} ${t.name}</span>` : ""}</div>
-                <div class="isp-flavor">${p.flavor}</div>
-                ${p.trait && p.trait!=="plain" ? `<div class="isp-trait-desc">▸ ${t.desc}</div>` : ""}
-                <div class="isp-tags">
-                  <span>速度 ${mod(p.speed)}</span>
-                  <span>ノイズ ${mod(p.noise, true)}</span>
-                  <span>話中 ${Math.round(p.busy*100)}%</span>
-                  <span>当たり ${mod(p.luck)}</span>
-                </div>
-              </button>`;}).join("")}
+            ${isps.map(ispCard).join("")}
+          </div>
+          <div class="isp-locked-wrap">
+            <div class="isp-locked-head">▼ 他の時代のプロバイダ（${ISPS.length - isps.length}社）</div>
+            ${ERA_ORDER.filter(e=> otherByEra[e]).map(e=>`
+              <div class="isp-locked-era">${eraLabelFull(e)}</div>
+              ${otherByEra[e].map(p=>{
+                const t = TRAITS[p.trait || "plain"];
+                return `<div class="isp-locked-row">
+                  <span class="isp-locked-name">${p.name}</span>
+                  ${p.trait && p.trait!=="plain" ? `<span class="isp-trait">${t.icon} ${t.name}</span>` : ""}
+                </div>`;
+              }).join("")}
+            `).join("")}
           </div>
         </div>
       </div>`;
@@ -173,6 +178,26 @@ const UI = (function(){
         Handshake.start(isp);
       };
     });
+  }
+  function ispCard(p){
+    const t = TRAITS[p.trait || "plain"];
+    return `
+      <button class="isp-card" data-isp="${p.id}">
+        <div class="isp-name">${p.name}
+          ${p.trait && p.trait!=="plain" ? `<span class="isp-trait">${t.icon} ${t.name}</span>` : ""}</div>
+        <div class="isp-flavor">${p.flavor}</div>
+        ${p.trait && p.trait!=="plain" ? `<div class="isp-trait-desc">▸ ${t.desc}</div>` : ""}
+        <div class="isp-tags">
+          <span>速度 ${mod(p.speed)}</span>
+          <span>ノイズ ${mod(p.noise, true)}</span>
+          <span>話中 ${Math.round(p.busy*100)}%</span>
+          <span>当たり ${mod(p.luck)}</span>
+        </div>
+      </button>`;
+  }
+  function eraLabelFull(era){
+    return { bbs:"パソコン通信の時代", web1:"WWW黎明期", web2:"ブロードバンド前夜(56k〜ISDN)",
+      broadband:"ADSLの時代", modern:"光・現代" }[era] || era;
   }
   function mod(v, invert){
     const good = invert ? v < 1 : v > 1;

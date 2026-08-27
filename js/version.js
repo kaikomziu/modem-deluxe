@@ -1,7 +1,14 @@
 // MODEM DELUXE - 更新履歴
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.3.1";
 
 const CHANGELOG = [
+  {
+    version: "1.3.1",
+    date: "2026-08-28",
+    notes: [
+      "接続先の選択画面に、他の時代のプロバイダ全23社を一覧表示(その時代の回線に切り替えると選べる旨を明記)"
+    ]
+  },
   {
     version: "1.3.0",
     date: "2026-08-28",

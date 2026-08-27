@@ -162,6 +162,13 @@ body{
 /* ---------- ISP select ---------- */
 .isp-window{ width:min(560px,100%); max-height:90%; overflow:auto; }
 .isp-lead{ font-size:13px; margin-bottom:10px; }
+.isp-lead-sub{ font-size:11px; color:#555; }
+.isp-locked-wrap{ margin-top:12px; border-top:2px groove #b7b3a4; padding-top:8px; }
+.isp-locked-head{ font-size:11px; font-weight:bold; color:#666; margin-bottom:6px; }
+.isp-locked-era{ font-size:10px; color:#888; margin:6px 0 3px; letter-spacing:1px; }
+.isp-locked-row{ display:flex; align-items:center; gap:8px; font-size:11px; color:#555; padding:3px 4px; }
+.isp-locked-row .isp-trait{ opacity:.85; }
+.isp-locked-name{ min-width:110px; font-weight:bold; }
 .isp-list{ display:flex; flex-direction:column; gap:8px; }
 .isp-card{
   text-align:left; cursor:pointer; font-family:inherit;
