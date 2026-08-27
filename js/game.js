@@ -133,6 +133,13 @@ const game = {
     const modem = this.modem();
     const weather = pickWeather();
     if(this.state.money < 1) this.state.stats.wentBrokeAndDialed = true;
+    // 従量課金プロバイダ: 接続ごとに少額課金
+    if(ispHasMod(isp, "e_fee")){
+      const np = MODEMS[this.state.modemTier + 1];
+      const fee = Math.max(20, Math.round((np ? np.price : MODEMS[this.state.modemTier].price) / 2500));
+      this.state.money = Math.max(0, this.state.money - fee);
+      this.state.run_fee = fee;
+    } else this.state.run_fee = 0;
     this.state.run = {
       isp, modem, weather,
       startedAt: Date.now(),
@@ -221,7 +228,12 @@ function fileValue(file, completion, run){
   const sizeFlavor = 0.5 + Math.min(1.5, Math.log10(file.kb + 10) / 3); // 0.7〜2.0
 
   let v = anchor * rar * negoMult * compMult * sizeFlavor;
-  if(run && ispTrait(run.isp) === "underground" && file.rarity === "common") v *= 0.4;
+  const isp = run && run.isp;
+  if(file.rarity === "common"){
+    if(ispHasMod(isp, "e_under")) v *= 0.4;
+    if(ispHasMod(isp, "e_bulk"))  v *= 1.7;
+  }
+  if(ispHasMod(isp, "e_fee")) v *= 1.2;
   return Math.max(1, Math.round(v));
 }
 
@@ -234,7 +246,10 @@ function currentEraIsps(){
   return list;
 }
 
-function ispTrait(isp){ return (isp && isp.trait) || "plain"; }
+function ispMods(isp){ return (isp && isp.mods) || []; }
+function ispHasMod(isp, m){ return ispMods(isp).indexOf(m) !== -1; }
+// 後方互換(古い呼び出し用): 主要 mod を1つ返す
+function ispTrait(isp){ return ispMods(isp)[0] || "plain"; }
 
 function pickWeather(){
   return weightedPick(WEATHERS, w=> w.weight);
@@ -243,9 +258,10 @@ function pickWeather(){
 function pickFile(isp){
   const ei = eraIndex(game.modem().era);
   // rarity 抽選 (ISP luck で上振れ)
-  const luck = isp ? isp.luck : 1;
+  let luck = isp ? isp.luck : 1;
+  if(ispHasMod(isp, "e_lucky")) luck *= 1.35;
   let roll = Math.random() * 100 / luck;
-  if(ispTrait(isp) === "underground") roll *= 0.55;   // アングラ: レア以上が出やすい
+  if(ispHasMod(isp, "e_under")) roll *= 0.55;   // アングラ: レア以上が出やすい
   let rk;
   if(roll < RARITY.legendary.weight) rk = "legendary";
   else if(roll < RARITY.legendary.weight + RARITY.rare.weight) rk = "rare";

@@ -151,8 +151,8 @@ const ACHIEVEMENTS = [].concat(
     check:(s)=> s.rawStormConnect },
 
   // --- プロバイダ特性 / 回線切替 ---
-  tierAch("isp","_ispsSize",[3,8,14,23],
-    (n)=> n>=23 ? "全プロバイダ制覇" : `プロバイダ行脚 ${n}`,
+  tierAch("isp","_ispsSize",[3,10,20,33],
+    (n)=> n>=33 ? "全プロバイダ制覇" : `プロバイダ行脚 ${n}`,
     (n)=> `${n}社のプロバイダで接続した。`),
   tierAch("retro","retroConnects",[1,10,50,150],
     (n)=> n===1 ? "考古学者" : `レトロ回線の常連 ${n}`,

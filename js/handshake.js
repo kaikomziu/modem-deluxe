@@ -38,9 +38,9 @@ const Handshake = (function(){
   }
   function abort(){ active = false; clearAll(); }
 
-  /* ---- プロバイダ特性 ---- */
-  function trait(){ return ispTrait(game.state.run.isp); }
-  function isT(t){ return trait() === t; }
+  /* ---- プロバイダ MOD ---- */
+  function hasM(m){ return ispHasMod(game.state.run.isp, m); }
+  function isT(m){ return hasM(m); }   // 旧名エイリアス
   function fixedApNumber(isp, digits){
     let h = 2166136261 >>> 0;
     for(const c of isp.id) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
@@ -69,7 +69,7 @@ const Handshake = (function(){
 
   /* ---- 時間制限バー ---- */
   function runTimer(seconds, onExpire){
-    const total = seconds + game.auxEffect("timeext") + (isT("stable") ? 3 : 0);
+    const total = seconds + game.auxEffect("timeext") + (hasM("t_plus") ? 3 : 0);
     const t0 = performance.now();
     let fired = false;
     startLoop((dt, now)=>{
@@ -86,23 +86,27 @@ const Handshake = (function(){
      ============================================================ */
   function stageDial(){
     const r = game.state.run;
-    const prefill = Math.max(0, Math.min(game.auxEffect("speeddial"), r.modem.digits - 3));
-    const len = Math.max(3, r.modem.digits - prefill);
-    let target = isT("fixedAP")
+    const digitAdj = (hasM("d_long") ? 2 : 0) - (hasM("d_short") ? 2 : 0);
+    const baseDigits = Math.max(3, r.modem.digits + digitAdj);
+    const prefill = Math.max(0, Math.min(game.auxEffect("speeddial"), baseDigits - 3));
+    const len = Math.max(3, baseDigits - prefill);
+    let target = hasM("d_fixed")
       ? fixedApNumber(r.isp, len)
       : randDigits(len);
     const prefillStr = prefill > 0 ? genPrefill(prefill) : "";
     const dispTarget = formatNum(prefillStr + target);
 
     let entered = "", manual = false, manualStr = "", finished = false;
+    let busyLeft = hasM("d_busy") ? (1 + Math.floor(Math.random()*2)) : 0;
 
     stageTitleEl.textContent = "① 番号ダイヤル";
-    stageHintEl.textContent = isT("fixedAP")
+    stageHintEl.textContent = hasM("d_fixed")
       ? "このプロバイダのAP番号は固定。いつもの番号を正確に。"
+      : hasM("d_long") ? "このプロバイダはAP番号が長い。落ち着いて正確に。"
       : "アクセスポイントの番号を正確に。押し間違えると話中音でやり直し。";
     stageEl.innerHTML = `
       <div class="dial-wrap">
-        <div class="dial-target">${isT("fixedAP")?"登録済みAP":"アクセスポイント"}: <b id="dialTargetNum">${dispTarget}</b></div>
+        <div class="dial-target">${hasM("d_fixed")?"登録済みAP":"アクセスポイント"}: <b id="dialTargetNum">${dispTarget}</b></div>
         <div class="dial-readout" id="dialReadout">${prefillStr ? formatNum(prefillStr) : "_"}</div>
         <div class="dial-status" id="dialStatus">受話器を上げてダイヤルしてください</div>
         <div class="keypad">
@@ -142,7 +146,7 @@ const Handshake = (function(){
     function dialExtraStep(){
       if(finished) return;
       clearAll();               // 本ダイヤルのタイマー/キー入力を停止
-      const member = isT("memberID");
+      const member = hasM("d_member");
       const code = randDigits(4);
       let typed = "", hidden = !member;
       stageTitleEl.textContent = member ? "① 会員認証" : "① 暗証番号";
@@ -162,7 +166,7 @@ const Handshake = (function(){
       const cEl = stageEl.querySelector("#exCode");
       const rEl = stageEl.querySelector("#exRead");
       const sEl = stageEl.querySelector("#exStat");
-      if(!member) T(()=>{ cEl.textContent = "＊＊＊＊"; sEl.textContent = "暗証番号を入力してください"; }, 2200);
+      if(!member) T(()=>{ cEl.textContent = "＊＊＊＊"; sEl.textContent = "暗証番号を入力してください"; }, 3400);
 
       function done(){
         finished = true; clearAll();
@@ -195,8 +199,18 @@ const Handshake = (function(){
       if(k === target[entered.length]){
         entered += k; redraw();
         if(entered.length === target.length){
+          if(busyLeft > 0){
+            busyLeft--;
+            entered = ""; redraw();
+            Sound.stopDialTone(); Sound.busy();
+            game.state.stats.busyRetries++;
+            status.textContent = "── お話し中です。もう一度おかけ直しください ──";
+            targBox.classList.add("flash-bad");
+            T(()=>{ targBox.classList.remove("flash-bad"); if(!finished){ status.textContent = "ダイヤルを続けてください"; Sound.startDialTone(); } }, 900);
+            return;
+          }
           Sound.stopDialTone();
-          if(!r.hiddenDial && (isT("memberID") || isT("underground"))) dialExtraStep();
+          if(!r.hiddenDial && (hasM("d_member") || hasM("d_pass"))) dialExtraStep();
           else proceed();
         }
       } else {
@@ -293,6 +307,7 @@ const Handshake = (function(){
       <div class="carrier-wrap">
         <canvas id="carrierCanvas" width="640" height="200"></canvas>
         <div class="carrier-scale">
+          <div class="carrier-decoy" id="carrierDecoy" ${hasM("c_decoy")?"":"hidden"}></div>
           <div class="carrier-band" id="carrierBand"></div>
           <div class="carrier-cursor" id="carrierCursor"></div>
         </div>
@@ -312,19 +327,27 @@ const Handshake = (function(){
     const pctEl = stageEl.querySelector("#signalPct");
     const statusEl = stageEl.querySelector("#carrierStatus");
     const scale = stageEl.querySelector(".carrier-scale");
+    const decoyEl = stageEl.querySelector("#carrierDecoy");
     Tutorial.stageHint("carrier");
 
     const tier = game.state.modemTier;
     let targetPos = 0.25 + Math.random()*0.5;
     let playerPos = Math.random()<0.5 ? 0.06 : 0.94;
-    const stableBonus = isT("stable") ? 0.03 : 0;
-    const tol = Math.max(0.04, (always ? 0.11 : isDigital ? 0.09 : 0.075) - tier*0.0018 + stableBonus);
-    const jitterAmt = (always ? 0.4 : 1) * r.weather.jitter * (1 - game.auxEffect("noisefilter")) * (isT("stable") ? 0.7 : 1) * 0.0016;
+    const tolMod = (hasM("c_wide") ? 0.035 : 0) - (hasM("c_narrow") ? 0.03 : 0);
+    const tol = Math.max(0.032, (always ? 0.11 : isDigital ? 0.09 : 0.075) - tier*0.0018 + tolMod);
+    const jitterFactor = hasM("c_assist") ? 0.15 : hasM("c_drift") ? 1.85 : 1;
+    const jitterAmt = (always ? 0.4 : 1) * r.weather.jitter * (1 - game.auxEffect("noisefilter")) * jitterFactor * 0.0016;
     const autotrack = game.auxEffect("autotrack");
+    const fillRate = 0.0016 * (hasM("c_fast") ? 1.7 : 1);
     let jitterPhase = Math.random()*10, signal = 0;
     // 高遅延プロバイダ: カーソル操作にラグ (悪天候でさらに)
-    const lagMs = isT("laggy") ? (220 + (r.weather.jitter - 1) * 260) : 0;
+    const lagMs = hasM("c_lag") ? (220 + (r.weather.jitter - 1) * 260) : 0;
     let lagQueue = [];
+    // 混線プロバイダ: ニセの帯
+    let decoyPos = hasM("c_decoy") ? Math.random() : -1;
+    let decoyPhase = Math.random()*10;
+    // 断続プロバイダ: 信号がたまに落ちる
+    let flakyTimer = hasM("c_flaky") ? 2 + Math.random()*3 : 999;
 
     Sound.startCarrier(700 + targetPos*1400);
 
@@ -361,16 +384,35 @@ const Handshake = (function(){
       if(autotrack > 0) playerPos += (targetPos - playerPos) * autotrack * (dt/1000) * 3.2;
 
       const inBand = Math.abs(playerPos - targetPos) < tol;
-      signal = inBand ? Math.min(1, signal + dt*0.0016) : Math.max(0, signal - dt*0.0022);
+      // 混線: ニセ帯に入っていると信号が下がる
+      let onDecoy = false;
+      if(decoyPos >= 0){
+        decoyPhase += dt*0.003;
+        decoyPos = Math.min(0.92, Math.max(0.08, decoyPos + Math.sin(decoyPhase)*jitterAmt*0.7));
+        onDecoy = !inBand && Math.abs(playerPos - decoyPos) < tol;
+      }
+      // 断続: 一定間隔で信号ドロップ
+      flakyTimer -= dt/1000;
+      let flakyDrop = false;
+      if(flakyTimer <= 0){ flakyDrop = true; signal = Math.max(0, signal - 0.5); flakyTimer = 2 + Math.random()*3; }
+
+      if(onDecoy)       signal = Math.max(0, signal - dt*0.003);
+      else if(inBand)   signal = Math.min(1, signal + dt*fillRate);
+      else              signal = Math.max(0, signal - dt*0.0022);
       Sound.setCarrierPlayer(700 + playerPos*1400);
 
       cursor.style.left = (playerPos*100) + "%";
       band.style.left  = ((targetPos - tol)*100) + "%";
       band.style.width = (tol*2*100) + "%";
       band.style.opacity = 0.25 + signal*0.5;
+      if(decoyEl){
+        decoyEl.style.left = ((decoyPos - tol)*100) + "%";
+        decoyEl.style.width = (tol*2*100) + "%";
+      }
       fill.style.width = (signal*100) + "%";
       pctEl.textContent = Math.round(signal*100) + "%";
-      statusEl.textContent = inBand ? "信号を捉えている。そのまま保持…" : "ずれています。トーンを合わせて。";
+      statusEl.textContent = flakyDrop ? "信号が途切れた…" : onDecoy ? "それはノイズ源。別の帯を探して。"
+        : inBand ? "信号を捉えている。そのまま保持…" : "ずれています。トーンを合わせて。";
       drawWaves(cxx, canvas, playerPos, targetPos, signal, now);
 
       if(signal >= 1){
@@ -450,19 +492,24 @@ const Handshake = (function(){
 
     const tier = game.state.modemTier;
     let ceiling = Math.max(0.4, 0.55 + Math.random()*0.4 - Math.min(0.12, tier*0.006));
-    if(isT("fragile")) ceiling = Math.min(1.0, ceiling + 0.12);
-    if(isT("telehodai")){
+    if(hasM("n_high")) ceiling = Math.min(1.0,  ceiling + 0.13);
+    if(hasM("n_low"))  ceiling = Math.max(0.32, ceiling - 0.13);
+    if(hasM("n_tele")){
       const h = new Date().getHours();
-      const bonus = (h >= 23 || h < 8);      // 深夜
-      ceiling = Math.max(0.3, Math.min(1.0, ceiling * (bonus ? 1.15 : 0.8)));
-      stageHintEl.textContent += bonus ? "  🌙 深夜料金帯: 限界+15%" : "  ☀ 昼間は自主規制: 限界-20%";
-      if(bonus){ game.state.stats.telehodaiNight = true; game.save(); }
+      const night = (h >= 23 || h < 8);
+      ceiling = Math.max(0.3, Math.min(1.0, ceiling * (night ? 1.15 : 0.8)));
+      stageHintEl.textContent += night ? "  🌙 深夜料金帯: 限界+15%" : "  ☀ 昼間は自主規制: 限界-20%";
+      if(night){ game.state.stats.telehodaiNight = true; game.save(); }
     }
-    const dangerWindow = isT("fragile") ? 0.07 : 0.16;   // 攻めの高速は警告が遅い
+    const dangerWindow = hasM("n_edgy") ? 0.07 : hasM("n_safe") ? 0.24 : 0.16;
+    const hardCeil = ceiling + (hasM("n_safe") ? 0.05 : 0);   // 安全マージン: 少し超えても即死しない
+    const riseRate = 0.00042 * (hasM("n_fast") ? 1.6 : hasM("n_slow") ? 0.62 : 1);
+    let retryLeft = hasM("n_retry") ? 1 : 0;
+    let recovering = 0;
     let rate = 0, holding = false, pushedCount = 0;
 
     // 限界表示プロバイダ: 目安ラインを描画
-    if(isT("hint")){
+    if(hasM("n_hint")){
       const mk = stageEl.querySelector("#negoMarker");
       mk.hidden = false;
       mk.style.bottom = (ceiling*100) + "%";
@@ -482,8 +529,9 @@ const Handshake = (function(){
 
     startLoop((dt)=>{
       if(done) return;
-      rate += holding ? dt*0.00042 : -dt*0.00022;
-      rate = Math.max(0, Math.min(1.05, rate));
+      if(recovering > 0){ recovering -= dt; holding = false; }
+      rate += (holding && recovering <= 0) ? dt*riseRate : -dt*0.00022;
+      rate = Math.max(0, Math.min(1.1, rate));
       const margin = ceiling - rate;
       const danger = margin < dangerWindow;
 
@@ -491,7 +539,16 @@ const Handshake = (function(){
       fill.style.background = danger ? "linear-gradient(#e0a53a,#e0483a)" : "linear-gradient(#3ac06a,#3a9ce0)";
       rateEl.textContent = Math.round(rate*100) + " %";
 
-      if(rate > ceiling){
+      if(rate > hardCeil){
+        if(retryLeft > 0){
+          retryLeft--;
+          recovering = 1200;
+          rate = ceiling * 0.6;
+          warnEl.textContent = "限界突破! 復帰中…"; warnEl.className = "nego-warn bad";
+          Sound.connectFail();
+          statusEl.textContent = "── 一度切れたが、繋ぎ直した(あと0回) ──";
+          return;
+        }
         done = true;
         clearAll();
         Sound.connectFail();
@@ -500,7 +557,10 @@ const Handshake = (function(){
         T(()=> fail("欲張って NO CARRIER"), 800);
         return;
       }
-      if(danger){
+      if(recovering > 0){
+        warnEl.textContent = "復帰中…"; warnEl.className = "nego-warn bad";
+        scr.classList.remove("shake-lite");
+      } else if(danger){
         warnEl.textContent = "⚠ 不安定"; warnEl.className = "nego-warn bad";
         dangerEl.style.opacity = Math.min(1, (dangerWindow - margin)/dangerWindow);
         Sound.handshakeStatic(Math.min(1, (dangerWindow-margin)/dangerWindow));
@@ -519,12 +579,12 @@ const Handshake = (function(){
     });
 
     function lock(byTimeout){
-      if(done) return;
+      if(done || recovering > 0) return;
       done = true;
       clearAll();
       scr.classList.remove("shake-lite");
-      if(rate > ceiling){ Sound.connectFail(); T(()=> fail("速度超過で NO CARRIER"), 600); return; }
-      r.negoQuality = Math.max(0, Math.min(1, rate));
+      if(rate > hardCeil){ Sound.connectFail(); T(()=> fail("速度超過で NO CARRIER"), 600); return; }
+      r.negoQuality = Math.max(0, Math.min(1, Math.min(rate, ceiling)));
       r.negoOneShot = (pushedCount <= 1) && !byTimeout;
       statusEl.textContent = `CONNECT — 実効品質 ${Math.round(r.negoQuality*100)}%`;
       connectNow();

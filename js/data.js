@@ -27,55 +27,132 @@ const MODEMS = [
 ];
 
 /* ---------- ISP (era 別、名前はパロディ) ---------- */
-// trait: プロバイダごとの「やることが変わる」特性。1つだけ持つ(なしは "plain")
-const TRAITS = {
-  plain:      { name:"標準",          icon:"◽", desc:"特別な仕掛けはなし。基本の3ステップ。" },
-  memberID:   { name:"会員制",        icon:"🪪", desc:"ダイヤル後に会員ID(4桁)の入力ステップが追加される。" },
-  fixedAP:    { name:"AP番号固定",    icon:"📌", desc:"アクセスポイント番号がいつも同じ。桁は多いが覚えれば楽。" },
-  underground:{ name:"アングラ",      icon:"🕶", desc:"ダイヤル時に暗証番号あり。レア以上が出やすいが常連ファイルは二束三文。" },
-  hint:       { name:"限界表示",      icon:"📐", desc:"レートネゴシエーションで回線の限界ラインがうっすら見える。" },
-  fragile:    { name:"攻めの高速",    icon:"⚡", desc:"ネゴシエーションの限界が高いが、警告が出るのは超ギリギリ。DL中の突然死あり。" },
-  stable:     { name:"鉄板",          icon:"🛡", desc:"全ステージ時間+3秒、ノイズ激減、キャリア検出の許容も広い。当たりは控えめ。" },
-  laggy:      { name:"高遅延",        icon:"🛰", desc:"キャリア検出のカーソル操作にラグ。悪天候でさらに重くなる。" },
-  telehodai:  { name:"テレホーダイ",  icon:"🌙", desc:"23〜8時は限界+15%、9〜22時は限界-20%(昼は自主規制)。" },
-  adware:     { name:"広告つき無料",  icon:"🎯", desc:"DL中に広告(🎁)が降ってくる。消さないと速度が落ちる。話中はほぼ無い。" },
-  datacap:    { name:"容量制限あり",  icon:"📵", desc:"DL中に通信制限が発動して激遅に。『追加チャージ』ボタンで即解除(有料)。" }
+/* ---------- プロバイダの MOD (やることを変える個別要素) ----------
+   各社は複数の mod を持ち、組み合わせで全社が別物の手触りになる。
+   phase: dial=①番号ダイヤル / carrier=②キャリア検出 / nego=③ネゴシエーション / dl=ダウンロード / eco=経済 */
+const MODS = {
+  // ---- ① 番号ダイヤル ----
+  d_member: { icon:"🪪", name:"会員ID",      phase:"dial",    desc:"ダイヤル後に会員ID(4桁)を入力する。" },
+  d_pass:   { icon:"🔑", name:"暗証番号",    phase:"dial",    desc:"ダイヤル後に暗証番号(数秒表示→暗記)を入力する。" },
+  d_fixed:  { icon:"📌", name:"AP番号固定",  phase:"dial",    desc:"アクセスポイント番号がいつも同じ。" },
+  d_long:   { icon:"📞", name:"長い番号",    phase:"dial",    desc:"AP番号が2桁長い。" },
+  d_short:  { icon:"⚡", name:"短縮番号",    phase:"dial",    desc:"AP番号が2桁短い。" },
+  d_busy:   { icon:"📵", name:"回線混雑",    phase:"dial",    desc:"最初に話中を1〜2回引かされる。" },
+  // ---- ② キャリア検出 ----
+  c_wide:   { icon:"🎯", name:"同期しやすい",phase:"carrier", desc:"帯域の許容範囲が広い。" },
+  c_narrow: { icon:"🔬", name:"シビア同期",  phase:"carrier", desc:"帯域の許容範囲が狭い。" },
+  c_lag:    { icon:"🛰", name:"高遅延",      phase:"carrier", desc:"カーソル操作にラグ。悪天候でさらに重い。" },
+  c_drift:  { icon:"〰", name:"ゆれ大",      phase:"carrier", desc:"相手のトーンがよく動く。" },
+  c_assist: { icon:"🧲", name:"自動追尾",    phase:"carrier", desc:"目標がほとんど動かない。" },
+  c_decoy:  { icon:"📻", name:"混線",        phase:"carrier", desc:"ニセの帯が出る。触れると信号が下がる。" },
+  c_flaky:  { icon:"📉", name:"断続",        phase:"carrier", desc:"信号がときどき勝手に落ちる。" },
+  c_fast:   { icon:"⏩", name:"高速同期",    phase:"carrier", desc:"信号が速く貯まる。" },
+  // ---- ③ レートネゴシエーション ----
+  n_hint:   { icon:"📐", name:"限界表示",    phase:"nego",    desc:"回線の限界ラインが見える。" },
+  n_high:   { icon:"📈", name:"高帯域",      phase:"nego",    desc:"限界が高い(速度を出しやすい)。" },
+  n_low:    { icon:"📉", name:"低帯域",      phase:"nego",    desc:"限界が低い。" },
+  n_edgy:   { icon:"⚠", name:"急変",        phase:"nego",    desc:"限界直前まで警告が出ない。" },
+  n_safe:   { icon:"🛟", name:"安全マージン",phase:"nego",    desc:"早めに警告が出る。超過しても猶予あり。" },
+  n_fast:   { icon:"🎢", name:"敏感",        phase:"nego",    desc:"速度ゲージが急上昇する。" },
+  n_slow:   { icon:"🐢", name:"緩やか",      phase:"nego",    desc:"速度ゲージがゆっくり上がる。" },
+  n_retry:  { icon:"♻", name:"やり直し可",  phase:"nego",    desc:"一度だけ超過してもリカバリーできる。" },
+  n_tele:   { icon:"🌙", name:"テレホーダイ",phase:"nego",    desc:"23〜8時は限界+15%、9〜22時は-20%。" },
+  // ---- ダウンロード ----
+  l_ad:     { icon:"🎯", name:"広告",        phase:"dl",      desc:"DL中に広告ポップアップが降る。消さないと減速。" },
+  l_spy:    { icon:"🐛", name:"スパイウェア",phase:"dl",      desc:"広告を消すと、たまに増殖する。" },
+  l_cap:    { icon:"📵", name:"容量制限",    phase:"dl",      desc:"途中で通信制限。追加チャージ(有料)で解除。" },
+  l_fragile:{ icon:"💥", name:"不安定",      phase:"dl",      desc:"DL中に前触れなく切断されることがある。" },
+  l_noisy:  { icon:"📶", name:"ノイズ多",    phase:"dl",      desc:"ノイズが多発する。" },
+  l_clean:  { icon:"🧼", name:"ノイズ少",    phase:"dl",      desc:"ノイズがほとんど出ない。" },
+  l_fast:   { icon:"🚀", name:"高速DL",      phase:"dl",      desc:"ダウンロードが速い。" },
+  l_slow:   { icon:"🐌", name:"低速DL",      phase:"dl",      desc:"ダウンロードが遅い。" },
+  // ---- 経済 ----
+  e_under:  { icon:"🕶", name:"アングラ",    phase:"eco",     desc:"レア以上が出やすいが、常連ファイルは二束三文。" },
+  e_bulk:   { icon:"📦", name:"薄利多売",    phase:"eco",     desc:"常連ファイルの売値が高め。" },
+  e_lucky:  { icon:"🍀", name:"当たり多い",  phase:"eco",     desc:"レアファイルの出現率アップ。" },
+  e_fee:    { icon:"💴", name:"従量課金",    phase:"eco",     desc:"接続ごとに少額の課金。ただし売値+20%。" },
+  t_plus:   { icon:"⏱", name:"時間+3秒",    phase:"all",     desc:"各ステージの制限時間が+3秒。" }
 };
 
 const ISPS = [
   // ===== bbs (パソコン通信) =====
-  { id:"pcvam",    name:"PC-VAM",        era:"bbs",       speed:1.0,  noise:1.0, busy:0.10, luck:1.0,  trait:"fixedAP",     flavor:"老舗の草分け。番号は昔から変わらない。" },
-  { id:"niftea",   name:"NIFTEA-Serve", era:"bbs",       speed:0.95, noise:0.9, busy:0.16, luck:1.15, trait:"memberID",    flavor:"フォーラム文化の総本山。会員番号を打たされる。" },
-  { id:"peccoame", name:"ペッコアメ",    era:"bbs",       speed:1.05, noise:1.1, busy:0.02, luck:0.9,  trait:"adware",      flavor:"月額無料の先駆け。広告で成り立っている。" },
-  { id:"ekimae",   name:"駅前ネット",    era:"bbs",       speed:1.1,  noise:1.25,busy:0.05, luck:1.1,  trait:"underground", flavor:"個人運営の草の根BBS。妙なファイルが転がっている。" },
-  { id:"asciinet", name:"ASCIInet",     era:"bbs",       speed:0.9,  noise:0.75,busy:0.12, luck:0.95, trait:"stable",      flavor:"技術書系。とにかく落ちない、荒れない。" },
+  { id:"pcvam",    name:"PC-VAM",        era:"bbs",       speed:1.0,  noise:1.0, busy:0.10, luck:1.0,  flavor:"老舗の草分け。番号は昔から変わらない。",
+    mods:["d_fixed","c_wide","l_clean"] },
+  { id:"niftea",   name:"NIFTEA-Serve", era:"bbs",       speed:0.95, noise:0.9, busy:0.16, luck:1.15, flavor:"フォーラム文化の総本山。会員番号を打たされる。",
+    mods:["d_member","n_hint","e_lucky"] },
+  { id:"peccoame", name:"ペッコアメ",    era:"bbs",       speed:1.05, noise:1.1, busy:0.02, luck:0.9,  flavor:"月額無料の先駆け。広告で成り立っている。",
+    mods:["d_short","l_ad","n_fast"] },
+  { id:"ekimae",   name:"駅前ネット",    era:"bbs",       speed:1.1,  noise:1.25,busy:0.05, luck:1.1,  flavor:"個人運営の草の根BBS。妙なファイルが転がっている。",
+    mods:["d_pass","c_decoy","e_under"] },
+  { id:"asciinet", name:"ASCIInet",     era:"bbs",       speed:0.9,  noise:0.75,busy:0.12, luck:0.95, flavor:"技術書系。とにかく落ちない、荒れない。",
+    mods:["d_fixed","c_assist","n_safe","l_clean","t_plus"] },
+  { id:"welj",     name:"WEL",          era:"bbs",       speed:0.9,  noise:0.85,busy:0.14, luck:1.0,  flavor:"硬派なコミュニティ。会員番号必須、同期はシビアだが常連ファイルは高く売れる。",
+    mods:["d_member","c_narrow","e_bulk"] },
+  { id:"kraken",   name:"Kraken",       era:"bbs",       speed:1.15, noise:1.3, busy:0.22, luck:1.15, flavor:"海賊BBS。いつも混んでて暗証番号つき。だが戦利品は上物ばかり。",
+    mods:["d_pass","d_busy","e_under"] },
 
   // ===== web1 (WWW黎明期) =====
-  { id:"beleave",  name:"BeLeave",      era:"web1",      speed:1.0,  noise:1.0, busy:0.12, luck:1.0,  trait:"plain",       flavor:"バランス型。可もなく不可もなく。" },
-  { id:"rimnyan",  name:"RIMニャン",    era:"web1",      speed:1.1,  noise:1.1, busy:0.08, luck:1.05, trait:"hint",        flavor:"技術志向。ネゴシエーションの限界を表示してくれる親切設計。" },
-  { id:"asahai",   name:"ASAHAIネット", era:"web1",      speed:0.9,  noise:0.8, busy:0.18, luck:1.2,  trait:"stable",      flavor:"新聞社系。堅実で当たりも多め。" },
-  { id:"hypernet", name:"ハイパーネット",era:"web1",      speed:1.05, noise:1.15,busy:0.01, luck:1.1,  trait:"adware",      flavor:"広告を見れば接続無料。とにかくバナーがしつこい。" },
-  { id:"infoza",   name:"インフォ座",    era:"web1",      speed:1.0,  noise:0.95,busy:0.1,  luck:1.15, trait:"memberID",    flavor:"大手系。契約者番号でログインする。" },
+  { id:"beleave",  name:"BeLeave",      era:"web1",      speed:1.0,  noise:1.0, busy:0.12, luck:1.0,  flavor:"バランス型。ちょっとだけ同期が楽。",
+    mods:["c_wide","n_safe"] },
+  { id:"rimnyan",  name:"RIMニャン",    era:"web1",      speed:1.1,  noise:1.1, busy:0.08, luck:1.05, flavor:"技術志向。限界は見せるが同期はシビア。",
+    mods:["n_hint","c_narrow","l_fast"] },
+  { id:"asahai",   name:"ASAHAIネット", era:"web1",      speed:0.9,  noise:0.8, busy:0.18, luck:1.2,  flavor:"新聞社系。契約者番号でログイン、堅実。",
+    mods:["d_member","n_slow","e_bulk"] },
+  { id:"hypernet", name:"ハイパーネット",era:"web1",      speed:1.05, noise:1.15,busy:0.01, luck:1.1,  flavor:"広告を見れば無料。バナーがどんどん増える。",
+    mods:["d_short","l_spy","l_ad","n_edgy"] },
+  { id:"infoza",   name:"インフォ座",    era:"web1",      speed:1.0,  noise:0.95,busy:0.1,  luck:1.15, flavor:"大手系。長い契約者番号＋会員認証。",
+    mods:["d_member","d_long","c_assist"] },
+  { id:"geoichi",  name:"ジオ市",        era:"web1",      speed:1.1,  noise:1.25,busy:0.02, luck:1.05, flavor:"無料ホームスペースの巨大コロニー。短い番号、雑多でノイズだらけ、でも数は出る。",
+    mods:["d_short","c_drift","l_noisy","e_bulk"] },
+  { id:"attj",     name:"エーティー",    era:"web1",      speed:0.95, noise:0.8, busy:0.09, luck:1.0,  flavor:"外資系。番号は長いが応対は丁寧、回線は静か。",
+    mods:["d_long","n_safe","l_clean"] },
 
   // ===== web2 (ブロードバンド前夜) =====
-  { id:"soneta",   name:"So-neta",      era:"web2",      speed:1.05, noise:0.95,busy:0.10, luck:1.0,  trait:"plain",       flavor:"ゲーム系コンテンツに強い。" },
-  { id:"ocm",      name:"OCM",          era:"web2",      speed:1.0,  noise:0.8, busy:0.12, luck:1.05, trait:"stable",      flavor:"電話会社系。石橋を叩いて渡る安定感。" },
-  { id:"diom",     name:"DIOM",         era:"web2",      speed:1.2,  noise:1.2, busy:0.04, luck:0.95, trait:"fragile",     flavor:"攻めの高速サービス。限界は高いが、切れる時は前触れなく切れる。" },
-  { id:"odn2",     name:"ODM",          era:"web2",      speed:1.0,  noise:1.0, busy:0.08, luck:1.0,  trait:"telehodai",   flavor:"テレホーダイ提携。深夜は化けるが昼は自主規制で遅い。" },
-  { id:"pururu",   name:"ぷりり",        era:"web2",      speed:1.05, noise:0.9, busy:0.09, luck:1.1,  trait:"hint",        flavor:"サポート重視。回線の限界をちゃんと教えてくれる。" },
+  { id:"soneta",   name:"So-neta",      era:"web2",      speed:1.05, noise:0.95,busy:0.10, luck:1.0,  flavor:"ゲーム系。同期もDLもテンポよく。",
+    mods:["c_fast","l_fast","e_lucky"] },
+  { id:"ocm",      name:"OCM",          era:"web2",      speed:1.0,  noise:0.8, busy:0.12, luck:1.05, flavor:"電話会社系。長い番号だが石橋を叩く安定感。",
+    mods:["d_long","c_wide","n_safe","l_clean"] },
+  { id:"diom",     name:"DIOM",         era:"web2",      speed:1.2,  noise:1.2, busy:0.04, luck:0.95, flavor:"攻めの高速。限界は高いが前触れなく切れる。",
+    mods:["n_high","n_edgy","l_fragile"] },
+  { id:"odn2",     name:"ODM",          era:"web2",      speed:1.0,  noise:1.0, busy:0.08, luck:1.0,  flavor:"テレホーダイ提携。深夜は化けるが昼は自主規制。",
+    mods:["n_tele","c_drift","l_slow"] },
+  { id:"pururu",   name:"ぷりり",        era:"web2",      speed:1.05, noise:0.9, busy:0.09, luck:1.1,  flavor:"サポート厚い。限界表示＋交渉やり直し可。",
+    mods:["n_hint","n_retry","c_wide"] },
+  { id:"anifty",   name:"アニフティ",    era:"web2",      speed:1.1,  noise:0.95,busy:0.07, luck:1.05, flavor:"パソコン通信大手と合併した最大手。会員認証・限界表示・DL高速。",
+    mods:["d_member","n_hint","l_fast"] },
+  { id:"triplei",  name:"トリプルアイ",  era:"web2",      speed:1.1,  noise:0.8, busy:0.06, luck:0.95, flavor:"技術者御用達の硬派。同期はシビアだが帯域は太く、回線は極めて静か。",
+    mods:["c_narrow","n_high","l_clean"] },
 
-  // ===== broadband (ADSL) =====
-  { id:"yahooo",   name:"ヤホーBB",      era:"broadband", speed:1.15, noise:1.1, busy:0.01, luck:1.1,  trait:"adware",      flavor:"モデムを街頭配布して契約激増。ポータルは広告まみれ。" },
-  { id:"biglobo",  name:"BIGLOBO",      era:"broadband", speed:1.0,  noise:0.9, busy:0.03, luck:1.0,  trait:"stable",      flavor:"総合力。可もなく不可もなく安定。" },
-  { id:"eaccela",  name:"イーアクセラ",  era:"broadband", speed:1.1,  noise:1.05,busy:0.02, luck:1.05, trait:"hint",        flavor:"収容局からの距離が全て。限界ラインは見せてくれる。" },
-  { id:"akkaman",  name:"アッカーマン",  era:"broadband", speed:1.25, noise:1.3, busy:0.02, luck:0.95, trait:"fragile",     flavor:"理論値は爆速。実効速度は運任せ。" },
+  // ===== broadband (ADSL / 常時接続。①ダイヤルは無し) =====
+  { id:"yahooo",   name:"ヤホーBB",      era:"broadband", speed:1.15, noise:1.1, busy:0.01, luck:1.1,  flavor:"モデム街頭配布で激増。ポータルは広告まみれ、回線は気まぐれ。",
+    mods:["l_ad","l_fast","n_high","c_flaky"] },
+  { id:"biglobo",  name:"BIGLOBO",      era:"broadband", speed:1.0,  noise:0.9, busy:0.03, luck:1.0,  flavor:"総合力。とにかく無難で静か。",
+    mods:["c_wide","n_safe","l_clean","t_plus"] },
+  { id:"eaccela",  name:"イーアクセラ",  era:"broadband", speed:1.1,  noise:1.05,busy:0.02, luck:1.05, flavor:"収容局からの距離が全て。限界は見せるが遅め、同期シビア。",
+    mods:["n_hint","l_slow","c_narrow"] },
+  { id:"akkaman",  name:"アッカーマン",  era:"broadband", speed:1.25, noise:1.3, busy:0.02, luck:0.95, flavor:"理論値は爆速。実効は運任せで揺れる。",
+    mods:["l_fast","l_fragile","c_drift","n_low"] },
+  { id:"tcom",     name:"ティーコン",    era:"broadband", speed:0.95, noise:0.85,busy:0.03, luck:1.0,  flavor:"電話会社のADSL。丁寧で限界も見せてくれるが、とにかく遅い。",
+    mods:["c_wide","n_hint","l_slow","t_plus"] },
+  { id:"lineshare",name:"ラインシェア",  era:"broadband", speed:1.2,  noise:1.2, busy:0.02, luck:1.05, flavor:"回線卸売の再販業者。速いが品質はガチャ。断続・不安定・低帯域。",
+    mods:["c_flaky","n_low","l_fragile","l_fast"] },
 
-  // ===== modern (光・現代) =====
-  { id:"nurort",   name:"NUROひかり風",  era:"modern",    speed:1.25, noise:0.9, busy:0.01, luck:1.15, trait:"fragile",     flavor:"下り2Gbpsをうたう新興。ピーク時に不安定になることも。" },
-  { id:"flets",    name:"フレッツ光風",  era:"modern",    speed:1.0,  noise:0.8, busy:0.01, luck:1.05, trait:"stable",      flavor:"日本中に張り巡らされた大動脈。鉄板。" },
-  { id:"kakiten",  name:"柿天モバイル",  era:"modern",    speed:1.1,  noise:1.0, busy:0.01, luck:1.1,  trait:"datacap",     flavor:"使い放題(ただし使いすぎると制限)。" },
-  { id:"tadalink", name:"タダリンク",    era:"modern",    speed:1.05, noise:1.2, busy:0.01, luck:1.2,  trait:"adware",      flavor:"広告視聴で通信量ゼロ円。令和の無料プロバイダ。" }
+  // ===== modern (光・現代。①②は無し、③は一瞬。DLと経済で差がつく) =====
+  { id:"nurort",   name:"NUROひかり風",  era:"modern",    speed:1.25, noise:0.9, busy:0.01, luck:1.15, flavor:"下り2Gbpsの新興。速いがピーク時に不安定。当たりは多い。",
+    mods:["l_fast","l_fragile","e_lucky"] },
+  { id:"flets",    name:"フレッツ光風",  era:"modern",    speed:1.0,  noise:0.8, busy:0.01, luck:1.05, flavor:"日本中の大動脈。速くて静かで鉄板。",
+    mods:["l_fast","l_clean","n_safe"] },
+  { id:"kakiten",  name:"柿天モバイル",  era:"modern",    speed:1.1,  noise:1.0, busy:0.01, luck:1.1,  flavor:"使い放題(使いすぎると制限)。薄利多売。",
+    mods:["l_cap","l_fast","e_bulk"] },
+  { id:"tadalink", name:"タダリンク",    era:"modern",    speed:1.05, noise:1.2, busy:0.01, luck:1.2,  flavor:"広告視聴で通信量ゼロ円。増殖する広告と従量課金の令和無料。",
+    mods:["l_spy","l_ad","e_fee"] },
+  { id:"sorang",   name:"ソラング",      era:"modern",    speed:1.2,  noise:1.05,busy:0.01, luck:1.1,  flavor:"5G専用。電波さえ入れば爆速だが、途切れるし従量課金。",
+    mods:["l_fast","l_fragile","e_fee"] },
+  { id:"machiwifi",name:"まちなかWi-Fi", era:"modern",    speed:0.85, noise:1.25,busy:0.01, luck:1.1,  flavor:"自治体の無料公衆回線。遅くてノイジーだが数だけは出る。",
+    mods:["l_slow","l_noisy","e_bulk","t_plus"] }
 ];
+// 後方互換用エイリアス
+const TRAITS = MODS;
 
 /* ---------- ダウンロードできるファイル ---------- */
 // rarity: common / uncommon / rare / legendary / secret

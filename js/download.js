@@ -21,25 +21,30 @@ const Download = (function(){
     const bps = effectiveBps();
     const bytes = file.kb * 1024;
     const realSec = bytes / (bps/8);
-    // 見て楽しめる長さに圧縮 (8〜38秒)
-    const duration = Math.min(38, Math.max(8, 5 + Math.log10(file.kb + 10) * 5 / (0.6 + r.negoQuality)));
+    const has = (m)=> ispHasMod(r.isp, m);
+    const dlSpeedMod = (has("l_fast") ? 0.72 : 1) * (has("l_slow") ? 1.42 : 1);
+    // 見て楽しめる長さに圧縮 (8〜40秒)
+    const duration = Math.min(40, Math.max(7,
+      (5 + Math.log10(file.kb + 10) * 5 / (0.6 + r.negoQuality)) * dlSpeedMod));
 
     // 長時間接続リスクのしきい値 (回線が新しいほど余裕)
     const eraIdx = eraIndex(r.modem.era);
     const longThreshold = [22, 30, 40, 70, 999][eraIdx];
 
-    const tr = ispTrait(r.isp);
+    const noiseFactor = has("l_clean") ? 2.0 : has("l_noisy") ? 0.5 : 1;
     st = {
-      file, bps, duration, longThreshold, trait: tr,
+      file, bps, duration, longThreshold,
+      m_ad: has("l_ad"), m_spy: has("l_spy"), m_cap: has("l_cap"),
+      m_fragile: has("l_fragile"),
       progress: 0, elapsed: 0, corruption: 0,
       speedMul: 1, slowUntil: 0,
-      noiseTimer: (2 + Math.random()*2) * (tr === "stable" ? 1.8 : 1),
+      noiseTimer: (2 + Math.random()*2) * noiseFactor, noiseFactor,
       activeNoise: null,
       weatherRolled: false,
       fragileRolled: false,
-      adTimer: tr === "adware" ? (2.5 + Math.random()*2) : 999,
+      adTimer: has("l_ad") ? (2.5 + Math.random()*2) : 999,
       activeAds: [],
-      capDone: (tr !== "datacap"),
+      capDone: !has("l_cap"),
       capThrottled: false,
       finished: false
     };
@@ -113,7 +118,7 @@ const Download = (function(){
     if(st.noiseTimer <= 0 && !st.activeNoise && st.progress < 0.97){
       spawnNoise();
       const filt = game.auxEffect("noisefilter");
-      const base = 2.4 / (r.weather.jitter) * (1 + filt*1.6);
+      const base = 2.4 / (r.weather.jitter) * (1 + filt*1.6) * st.noiseFactor;
       st.noiseTimer = base + Math.random()*base;
     }
     if(st.activeNoise){
@@ -121,15 +126,14 @@ const Download = (function(){
       if(st.activeNoise.ttl <= 0) missNoise();
     }
 
-    // 広告つき無料プロバイダ: 広告ポップアップ
-    if(st.trait === "adware"){
+    // 広告プロバイダ: 広告ポップアップ
+    if(st.m_ad){
       st.adTimer -= dt;
-      if(st.adTimer <= 0 && st.activeAds.length < 3 && st.progress < 0.95){
+      if(st.adTimer <= 0 && st.activeAds.length < 4 && st.progress < 0.95){
         spawnAd();
         st.adTimer = 2.6 + Math.random()*2.4;
       }
-      // 未処理の広告が多いほど速度低下
-      const adDrag = 1 - Math.min(0.55, st.activeAds.length * 0.2);
+      const adDrag = 1 - Math.min(0.6, st.activeAds.length * 0.2);
       st.adMul = adDrag;
     } else st.adMul = 1;
 
@@ -141,8 +145,8 @@ const Download = (function(){
       Sound.error();
     }
 
-    // 攻めの高速プロバイダ: 65%で突然死ロール
-    if(st.trait === "fragile" && !st.fragileRolled && st.progress > 0.65){
+    // 不安定プロバイダ: 65%で突然死ロール
+    if(st.m_fragile && !st.fragileRolled && st.progress > 0.65){
       st.fragileRolled = true;
       if(Math.random() < 0.14 && Math.random() >= game.auxEffect("surge")){
         return disconnect("回線が不安定で、前触れなく切断された");
@@ -225,6 +229,7 @@ const Download = (function(){
 
   /* ---- 広告 (adware プロバイダ) ---- */
   function spawnAd(){
+    if(!running || st.activeAds.length >= 5) return;
     const layer = els.noiseLayer;
     const el = document.createElement("div");
     el.className = "dl-ad";
@@ -243,6 +248,12 @@ const Download = (function(){
       st.activeAds = st.activeAds.filter(a=> a !== obj);
       game.state.stats.adsClosed = (game.state.stats.adsClosed||0) + 1;
       checkAchievements();
+      // スパイウェア: 消すと増えることがある
+      if(st.m_spy && st.progress < 0.9 && st.activeAds.length < 4 && Math.random() < 0.45){
+        Sound.error();
+        const extra = 1 + (Math.random() < 0.3 ? 1 : 0);
+        for(let i=0;i<extra;i++) setTimeout(spawnAd, 120 + i*160);
+      }
     };
     st.activeAds.push(obj);
   }

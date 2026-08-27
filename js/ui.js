@@ -159,13 +159,10 @@ const UI = (function(){
             <div class="isp-locked-head">▼ 他の時代のプロバイダ（${ISPS.length - isps.length}社）</div>
             ${ERA_ORDER.filter(e=> otherByEra[e]).map(e=>`
               <div class="isp-locked-era">${eraLabelFull(e)}</div>
-              ${otherByEra[e].map(p=>{
-                const t = TRAITS[p.trait || "plain"];
-                return `<div class="isp-locked-row">
+              ${otherByEra[e].map(p=>`<div class="isp-locked-row">
                   <span class="isp-locked-name">${p.name}</span>
-                  ${p.trait && p.trait!=="plain" ? `<span class="isp-trait">${t.icon} ${t.name}</span>` : ""}
-                </div>`;
-              }).join("")}
+                  ${(p.mods||[]).map(k=> MODS[k] ? `<span class="isp-trait">${MODS[k].icon}${MODS[k].name}</span>` : "").join("")}
+                </div>`).join("")}
             `).join("")}
           </div>
         </div>
@@ -180,13 +177,13 @@ const UI = (function(){
     });
   }
   function ispCard(p){
-    const t = TRAITS[p.trait || "plain"];
+    const ms = (p.mods || []).filter(k=> MODS[k]);
     return `
       <button class="isp-card" data-isp="${p.id}">
-        <div class="isp-name">${p.name}
-          ${p.trait && p.trait!=="plain" ? `<span class="isp-trait">${t.icon} ${t.name}</span>` : ""}</div>
+        <div class="isp-name">${p.name}</div>
         <div class="isp-flavor">${p.flavor}</div>
-        ${p.trait && p.trait!=="plain" ? `<div class="isp-trait-desc">▸ ${t.desc}</div>` : ""}
+        ${ms.length ? `<div class="isp-mods">${ms.map(k=>
+          `<span class="isp-mod"><b>${MODS[k].icon} ${MODS[k].name}</b> ${MODS[k].desc}</span>`).join("")}</div>` : ""}
         <div class="isp-tags">
           <span>速度 ${mod(p.speed)}</span>
           <span>ノイズ ${mod(p.noise, true)}</span>
