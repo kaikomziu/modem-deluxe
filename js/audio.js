@@ -206,8 +206,31 @@ const Sound = (function(){
     tone(988,0.06,"square",0.12,t); tone(1319,0.12,"square",0.12,t+0.06);
   }
 
+  /* ---- デスクトップBGM (集めたMIDIを"設定"すると鳴る簡易ループ) ---- */
+  let bgmTimer = null, bgmStep = 0;
+  function startBgm(seed){
+    stopBgm();
+    if(!ctx || !enabled) return;
+    let h = 0; for(const c of String(seed||"midi")) h = (h*31 + c.charCodeAt(0)) >>> 0;
+    const scales = [[0,2,4,7,9],[0,3,5,7,10],[0,2,3,7,8],[0,2,5,7,9]];
+    const scale = scales[h % scales.length];
+    const root = 220 * Math.pow(2, ((h>>3) % 5) / 12);
+    const pattern = [];
+    for(let i=0;i<16;i++) pattern.push(scale[(h >> (i%12)) % scale.length] + (((h>>i)&1) ? 12 : 0));
+    bgmStep = 0;
+    bgmTimer = setInterval(()=>{
+      if(!enabled) return;
+      const semi = pattern[bgmStep % pattern.length];
+      const f = root * Math.pow(2, semi/12);
+      tone(f, 0.32, "triangle", 0.05);
+      if(bgmStep % 4 === 0) tone(root/2, 0.5, "sine", 0.04);
+      bgmStep++;
+    }, 300);
+  }
+  function stopBgm(){ if(bgmTimer){ clearInterval(bgmTimer); bgmTimer = null; } }
+
   return {
-    init, resume, setEnabled, isEnabled,
+    init, resume, setEnabled, isEnabled, startBgm, stopBgm,
     dtmf, startDialTone, stopDialTone, ringback, busy,
     startCarrier, setCarrierPlayer, carrierLock, stopCarrier,
     startHandshake, handshakeStatic, stopHandshake,

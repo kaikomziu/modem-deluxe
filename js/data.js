@@ -222,6 +222,77 @@ const SECRET_FILES = {
   "2038":      { name:"epochalypse_notice.txt", kb:2038, era:"modern",rarity:"secret" }
 };
 
+/* ---------- ウイルスファイル (まれに紛れ込む。隔離 or 開く) ---------- */
+const VIRUS_FILES = [
+  { name:"cool_screensaver.exe.scr", kb:88,   era:"bbs",  rarity:"uncommon", virus:true },
+  { name:"FREE_MONEY_GENERATOR.exe", kb:120,  era:"web1", rarity:"uncommon", virus:true },
+  { name:"invoice_2001.doc.exe",     kb:64,   era:"web2", rarity:"uncommon", virus:true },
+  { name:"codec_pack_install.exe",   kb:1800, era:"broadband", rarity:"rare", virus:true },
+  { name:"totally_not_a_virus.zip",  kb:14,   era:"bbs",  rarity:"rare", virus:true }
+];
+
+/* ---------- チェーンメール (低価値。図鑑コンプには必要) ---------- */
+const CHAIN_FILES = [
+  { name:"chain_letter_happiness.txt", kb:3, era:"bbs",  rarity:"common", chain:true,
+    body:"このメールを受け取ったあなたは幸せになれます。ただし10人に転送しないと…" },
+  { name:"chain_bill_gates_money.txt", kb:4, era:"web1", rarity:"common", chain:true,
+    body:"マイクロソフト社のメール追跡実験。転送するとビル・ゲイツから小切手が届きます。" },
+  { name:"chain_lucky_cat.gif",        kb:9, era:"web2", rarity:"common", chain:true,
+    body:"この招き猫を5人に送ると金運アップ。無視すると…猫が去ります。" },
+  { name:"chain_last_warning.txt",     kb:2, era:"broadband", rarity:"uncommon", chain:true,
+    body:"※これは最後の警告です※ このメールは1998年から回り続けています。" }
+];
+
+/* ---------- 各プロバイダの看板ファイル (そのISPでしか落ちない) ---------- */
+const SIGNATURE_FILES = {
+  pcvam:    { name:"pcvam_welcome_kit.lzh",       kb:44,    rarity:"uncommon" },
+  niftea:   { name:"niftea_forum_digest.txt",     kb:120,   rarity:"rare" },
+  peccoame: { name:"peccoame_banner_archive.zip", kb:210,   rarity:"uncommon" },
+  ekimae:   { name:"ekimae_sysop_mixtape.mod",    kb:180,   rarity:"rare" },
+  asciinet: { name:"asciinet_the_bible.txt",      kb:2400,  rarity:"rare" },
+  welj:     { name:"wel_founders_essay.txt",      kb:64,    rarity:"rare" },
+  kraken:   { name:"kraken_treasure_map.jpg",     kb:640,   rarity:"legendary" },
+  beleave:  { name:"beleave_starter_pack.zip",    kb:320,   rarity:"uncommon" },
+  rimnyan:  { name:"rimnyan_kernel_patch.tar.gz", kb:900,   rarity:"rare" },
+  asahai:   { name:"asahai_morning_edition.pdf",  kb:1400,  rarity:"uncommon" },
+  hypernet: { name:"hypernet_ad_blocker.exe",     kb:88,    rarity:"rare" },
+  infoza:   { name:"infoza_member_directory.dat", kb:3200,  rarity:"uncommon" },
+  geoichi:  { name:"geoichi_homepage_dump.zip",   kb:8800,  rarity:"uncommon" },
+  attj:     { name:"attj_global_backbone.map",    kb:1200,  rarity:"rare" },
+  soneta:   { name:"soneta_game_demo_vault.zip",  kb:24000, rarity:"rare" },
+  ocm:      { name:"ocm_line_quality_report.xls", kb:900,   rarity:"uncommon" },
+  diom:     { name:"diom_overclock_guide.txt",    kb:64,    rarity:"rare" },
+  odn2:     { name:"odn_teleho_survival.txt",     kb:48,    rarity:"uncommon" },
+  pururu:   { name:"pururu_support_replay.avi",   kb:36000, rarity:"uncommon" },
+  anifty:   { name:"anifty_merger_memo.doc",      kb:220,   rarity:"rare" },
+  triplei:  { name:"triplei_rfc_collection.txt",  kb:5400,  rarity:"rare" },
+  yahooo:   { name:"yahooo_free_modem_promo.mpg", kb:88000, rarity:"uncommon" },
+  biglobo:  { name:"biglobo_all_in_one.iso",      kb:640000,rarity:"uncommon" },
+  eaccela:  { name:"eaccela_distance_calc.exe",   kb:400,   rarity:"rare" },
+  akkaman:  { name:"akkaman_theoretical_max.log", kb:120,   rarity:"legendary" },
+  tcom:     { name:"tcom_apology_letter.txt",     kb:8,     rarity:"rare" },
+  lineshare:{ name:"lineshare_reseller_list.csv", kb:2400,  rarity:"uncommon" },
+  nurort:   { name:"nurort_2gbps_proof.mkv",      kb:1500000,rarity:"rare" },
+  flets:    { name:"flets_nationwide_map.mbtiles",kb:3200000,rarity:"uncommon" },
+  kakiten:  { name:"kakiten_data_saver_tips.txt", kb:24,    rarity:"rare" },
+  tadalink: { name:"tadalink_adfree_hack.zip",    kb:1200,  rarity:"legendary" },
+  sorang:   { name:"sorang_5g_speedtest.mp4",     kb:900000, rarity:"rare" },
+  machiwifi:{ name:"machiwifi_terms_of_use.pdf",   kb:64,    rarity:"uncommon" }
+};
+
+/* ---------- ファイル種別判定 (使う / 解凍) ---------- */
+function fileKind(f){
+  const n = (f.name || "").toLowerCase();
+  if(f.virus) return "virus";
+  if(f.chain) return "chain";
+  if(/\.(zip|lzh|tar\.gz|tgz|7z|iso|rar)$/.test(n)) return "archive";
+  if(/\.(gif|jpe?g|png|bmp|map|mbtiles)$/.test(n)) return "image";
+  if(/\.(mid|midi|mod|xm|s3m)$/.test(n)) return "midi";
+  if(/\.(mp3|wav|flac|rm)$/.test(n)) return "audio";
+  if(/\.(exe|scr|com)$/.test(n)) return "soft";
+  return "data";
+}
+
 /* ---------- 隠しダイヤル (番号ダイヤル画面で入力すると発動) ---------- */
 // type: "sound"=変な音 / "bbs"=秘密BBS(secretファイル解禁) / "msg"=開発者メッセージ / "cash"=臨時収入
 const HIDDEN_DIALS = {

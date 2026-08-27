@@ -196,7 +196,30 @@ const ACHIEVEMENTS = [].concat(
   tierAch("appl","applianceHits",[1,25,100],
     (n)=> `家電に負けた ${n}`, (n)=> `ダウンロード中に家電の干渉を${n}回受けた。`, true),
   { id:"sp_coolmax", name:"完全冷却", desc:"冷却ファンを最大まで上げた。", hidden:false,
-    check:(s)=> (s._aux.coolfan||0) >= 3 }
+    check:(s)=> (s._aux.coolfan||0) >= 3 },
+
+  // --- バッチ2: ファイル系 ---
+  tierAch("sig","_sigSize",[1,5,15,33],
+    (n)=> n>=33 ? "看板ファイル制覇" : `看板ファイル ${n}`,
+    (n)=> `各プロバイダ限定の看板ファイルを${n}種類集めた。`),
+  tierAch("chain","chainGot",[1,4],
+    (n)=> n>=4 ? "チェーンメール完全体" : `チェーンメール ${n}`,
+    (n)=> `チェーンメールを${n}種類受け取った。`, true),
+  tierAch("arc","archivesOpened",[1,25,100],
+    (n)=> `解凍 ${n}`, (n)=> `アーカイブを${n}回解凍した。`),
+  tierAch("vq","virusQuarantined",[1,10,50],
+    (n)=> n===1 ? "隔離完了" : `ウイルスバスター ${n}`,
+    (n)=> `ウイルスファイルを${n}回隔離した。`),
+  { id:"sp_virusopen", name:"押すなと言われて押す人", desc:"ウイルスを承知で開いた。", hidden:true,
+    check:(s)=> s.virusOpened > 0 },
+  { id:"sp_forward", name:"善意の連鎖", desc:"チェーンメールを本当に転送した。", hidden:true,
+    check:(s)=> s.chainForwarded > 0 },
+  { id:"sp_wallpaper", name:"模様替え", desc:"落とした画像を壁紙に設定した。", hidden:true,
+    check:(s)=> s.wallpapersSet > 0 },
+  { id:"sp_bgm", name:"BGMのある生活", desc:"落としたMIDIをデスクトップBGMにした。", hidden:true,
+    check:(s)=> s.bgmSet > 0 },
+  { id:"sp_install", name:"インストール", desc:"落としたソフトをインストールした。", hidden:true,
+    check:(s)=> s.softInstalled > 0 }
 );
 
 // _hiddenSize / _distinctSize は疑似 stat。checkの直前に埋める。
@@ -206,6 +229,7 @@ function achPrepStats(s){
   s._ispsSize     = s.ispsUsed ? Object.keys(s.ispsUsed).length : 0;
   s._aux          = game.state.aux || {};
   s._maxTier      = game.state.maxTier || 0;
+  s._sigSize      = s.signaturesGot ? Object.keys(s.signaturesGot).length : 0;
 }
 
 /* ---------- 判定 & 通知 ---------- */

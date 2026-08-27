@@ -349,6 +349,12 @@ body{
 .res-money{ font-size:12px; margin-bottom:8px; }
 .res-hint{ font-size:12px; background:#fffbe0; border:1px solid #d8c870; padding:6px; margin-bottom:8px; }
 .res-actions{ display:flex; flex-direction:column; gap:6px; }
+.res-choices{ display:flex; flex-direction:column; gap:6px; margin:8px 0; }
+.res-ok{ font-size:12px; color:#1a6a2a; background:#e8f4e8; border:1px solid #a8c8a8; padding:6px; margin:4px 0; }
+.res-chain{ font-size:12px; color:#444; background:#fffbe0; border:1px dashed #c8b860; padding:8px; margin:6px 0; line-height:1.6; }
+.res-unpack-row{ font-size:11px; display:flex; justify-content:space-between; padding:2px 4px; border-bottom:1px dotted #c8c4b8; }
+.res-unpack-row b{ color:#1a7d1a; }
+.hs-infected{ color:#d06aff; font-weight:bold; animation:heatBlink .7s steps(2) infinite; }
 
 /* ---------- no carrier ---------- */
 #noCarrierScreen{ background:#120404; }

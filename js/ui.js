@@ -10,7 +10,7 @@ const UI = (function(){
       if(el) el.classList.toggle("active", s === name);
     });
     document.body.dataset.screen = name;
-    if(name !== "desktop"){ clearInterval(deskLoopTimer); clearInterval(clockTimer); }
+    if(name !== "desktop"){ clearInterval(deskLoopTimer); clearInterval(clockTimer); Sound.stopBgm(); }
     if(typeof PC !== "undefined"){ name === "desktop" ? PC.armDesktop() : PC.disarm(); }
   }
 
@@ -61,13 +61,23 @@ const UI = (function(){
   }
 
   /* ---------- デスクトップ ---------- */
+  function wallpaperStyle(name){
+    let h = 0; for(const c of name) h = (h*33 + c.charCodeAt(0)) >>> 0;
+    const a = h % 360, b = (h >> 8) % 360, t = (h >> 4) % 4;
+    if(t === 0) return `background:linear-gradient(${h%360}deg,hsl(${a} 45% 30%),hsl(${b} 45% 18%));`;
+    if(t === 1) return `background:radial-gradient(circle at ${20+h%60}% ${20+(h>>2)%60}%,hsl(${a} 50% 35%),hsl(${b} 40% 12%));`;
+    if(t === 2) return `background:repeating-linear-gradient(${h%180}deg,hsl(${a} 40% 25%) 0 18px,hsl(${b} 40% 20%) 18px 36px);`;
+    return `background:conic-gradient(from ${h%360}deg,hsl(${a} 45% 28%),hsl(${b} 45% 20%),hsl(${a} 45% 28%));`;
+  }
   function desktop(){
     showScreen("desktop");
     const { got, total } = achievementCounts();
     const m = game.modem();
     const scr = document.getElementById("desktopScreen");
+    if(game.state.bgm && Sound.isEnabled()) Sound.startBgm(game.state.bgm);
+    const wp = game.state.wallpaper ? ` style="${wallpaperStyle(game.state.wallpaper)}"` : "";
     scr.innerHTML = `
-      <div class="desk-bg">
+      <div class="desk-bg"${wp}>
         <div class="desk-icons">
           ${deskIcon("connect","☎","接続する")}
           ${deskIcon("upgrade","🖧","アップグレード")}
@@ -241,6 +251,7 @@ const UI = (function(){
       <span class="hs-isp">${r.isp.name}</span>
       <span class="hs-modem">${r.modem.name}</span>
       <span class="hs-weather">${r.weather.icon} ${r.weather.name}</span>
+      ${r.infected ? `<span class="hs-infected">😈 感染中</span>` : ""}
       <span class="hs-conn" id="hsConn"></span>
       <button class="hs-abort" id="hsAbort">中止</button>`;
     el.querySelector("#hsAbort").onclick = ()=>{
@@ -318,40 +329,148 @@ const UI = (function(){
   /* ---------- ダウンロード結果 ---------- */
   function showDownloadResult(data){
     showScreen("result");
-    const { file, completion, ok, reason, value, corrupted, bill } = data;
+    const { file, completion, ok, reason, bill } = data;
+    const kind = data.kind || fileKind(file);
     const rar = RARITY[file.rarity];
     const scr = document.getElementById("resultScreen");
-    const nextModem = game.nextModem();
-    const net = value - (bill || 0);
-    scr.innerHTML = `
+    const corrupted = completion < 0.999;
+    let resolved = false, extraHtml = "";
+
+    function paint(){
+      const nextModem = game.nextModem();
+      const bd = bill || 0;
+      scr.innerHTML = `
       <div class="win98 res-window">
         <div class="win98-title"><span>${ok ? "ダウンロード完了" : "転送中断"}</span></div>
         <div class="win98-body res-body">
           <div class="res-file" style="border-color:${rar.color}">
-            <div class="res-file-icon">${corrupted ? "🗎" : "📄"}</div>
+            <div class="res-file-icon">${kind==="virus"?"☣":kind==="chain"?"✉":kind==="archive"?"🗜":corrupted?"🗎":"📄"}</div>
             <div class="res-file-info">
               <div class="res-file-name">${file.name}</div>
-              <div class="res-file-rar" style="color:${rar.color}">${rar.label}ファイル</div>
+              <div class="res-file-rar" style="color:${rar.color}">${rar.label}ファイル${file.signature?" ・ 看板ファイル":""}</div>
               <div class="res-file-size">${formatSize(file.kb)} ／ 取得 ${Math.round(completion*100)}%</div>
             </div>
           </div>
           ${!ok ? `<div class="res-warn">${reason}<br>不完全なファイルは価値が下がる。</div>` : ""}
           ${corrupted && ok ? `<div class="res-warn">ノイズで一部が化けた。</div>` : ""}
-          <div class="res-earn">売却額 <b>+${formatMoney(value)}</b></div>
-          ${bill > 0 ? `<div class="res-bill">通話料 <b>−${formatMoney(bill)}</b>　<span class="res-net">差引 ${net>=0?'+':''}${formatMoney(net)}</span></div>` : `<div class="res-bill res-teleho">🌙 テレホーダイ時間帯 — 通話料 ¥0</div>`}
+          <div id="resBody">${extraHtml}</div>
+          ${bd > 0 ? `<div class="res-bill">通話料 <b>−${formatMoney(bd)}</b></div>` : `<div class="res-bill res-teleho">🌙 テレホーダイ時間帯 — 通話料 ¥0</div>`}
           <div class="res-money">所持金: <b>${formatMoney(game.state.money)}</b></div>
-          ${nextModem && game.state.money >= nextModem.price
+          ${resolved && nextModem && game.state.money >= nextModem.price
             ? `<div class="res-hint">💡 <b>${nextModem.name}</b> が買える！</div>` : ""}
-          <div class="res-actions">
+          <div class="res-actions" ${resolved?"":"hidden"}>
             <button class="win98-btn primary" id="resAgain">もう一度接続 ▶</button>
             <button class="win98-btn" id="resUp">アップグレード</button>
             <button class="win98-btn" id="resDesk">デスクトップ</button>
           </div>
         </div>
       </div>`;
-    scr.querySelector("#resAgain").onclick = ()=>{ Sound.click(); ispSelect(); };
-    scr.querySelector("#resUp").onclick    = ()=>{ Sound.click(); openUpgrades(); };
-    scr.querySelector("#resDesk").onclick  = ()=>{ Sound.click(); desktop(); };
+      if(resolved){
+        scr.querySelector("#resAgain").onclick = ()=>{ Sound.click(); ispSelect(); };
+        scr.querySelector("#resUp").onclick    = ()=>{ Sound.click(); openUpgrades(); };
+        scr.querySelector("#resDesk").onclick  = ()=>{ Sound.click(); desktop(); };
+      }
+      wireChoices();
+    }
+
+    function done(v){
+      resolved = true;
+      extraHtml = `<div class="res-earn">売却額 <b>+${formatMoney(v)}</b></div>` + extraHtml;
+      Sound.coin();
+      paint();
+    }
+
+    function wireChoices(){
+      const b = scr.querySelector("#resBody");
+      if(!b) return;
+      b.querySelectorAll("[data-choice]").forEach(el=>{
+        el.onclick = ()=> onChoice(el.dataset.choice);
+      });
+    }
+
+    function onChoice(c){
+      Sound.click();
+      if(c === "quarantine"){
+        game.state.stats.virusQuarantined++;
+        const v = game.acquireFile(file, completion, { quarantine:true });
+        extraHtml = `<div class="res-ok">🧪 隔離した。安全にサンプルとして売却。</div>`;
+        done(v);
+      } else if(c === "openvirus"){
+        game.state.stats.virusOpened++;
+        game.state.infected = { type: Math.random()<0.5 ? "noise" : "heat" };
+        const v = game.acquireFile(file, completion);
+        extraHtml = `<div class="res-warn">😈 実行してしまった。次の接続に影響が出る…</div>`;
+        done(v);
+      } else if(c === "forward"){
+        game.state.stats.chainForwarded++;
+        const v = game.acquireFile(file, completion);
+        extraHtml = `<div class="res-ok">📨 10人に転送した。……特に何も起きなかった。</div>`;
+        done(v);
+      } else if(c === "ignorechain"){
+        const v = game.acquireFile(file, completion);
+        extraHtml = `<div class="res-ok">チェーンメールを無視した。図鑑には記録された。</div>`;
+        done(v);
+      } else if(c === "unpack"){
+        const bonus = game.unpackArchive(file);
+        const list = bonus.map(x=> `<div class="res-unpack-row">📄 ${x.file.name} <b>+${formatMoney(x.value)}</b></div>`).join("");
+        const tot = bonus.reduce((a,x)=> a + x.value, 0);
+        extraHtml = `<div class="res-ok">🗜 解凍完了 — ${bonus.length}個のファイル</div>${list}
+          <div class="res-earn">中身の合計 <b>+${formatMoney(tot)}</b></div>` + extraHtml;
+        resolved = true; Sound.coin(); paint();
+      } else if(c === "wallpaper"){
+        game.state.wallpaper = file.name; game.state.stats.wallpapersSet++; game.save();
+        UI.banner("壁紙を『" + file.name + "』に設定した", "good");
+        checkAchievements(); markUsed();
+      } else if(c === "bgm"){
+        game.state.bgm = file.name; game.state.stats.bgmSet++; game.save();
+        UI.banner("デスクトップBGMを『" + file.name + "』に設定した", "good");
+        checkAchievements(); markUsed();
+      } else if(c === "install"){
+        game.state.installed[file.name] = 1; game.state.stats.softInstalled++; game.save();
+        UI.banner("『" + file.name + "』をインストールした", "good");
+        checkAchievements(); markUsed();
+      }
+    }
+    function markUsed(){
+      const b = scr.querySelector("#resBody [data-choice]");
+      if(b) b.closest(".res-choices").innerHTML = `<div class="res-ok">✔ 使用した。</div>`;
+    }
+
+    // --- 初期分岐 ---
+    if(ok || kind === "virus" || kind === "chain"){
+      if(kind === "virus"){
+        extraHtml = `<div class="res-warn">☣ このファイルはウイルスに感染している！</div>
+          <div class="res-choices">
+            <button class="win98-btn primary" data-choice="quarantine">隔離する(安全・売値ダウン)</button>
+            <button class="win98-btn" data-choice="openvirus">開く(フル売値・次の接続に呪い)</button>
+          </div>`;
+        paint(); return;
+      }
+      if(kind === "chain"){
+        extraHtml = `<div class="res-chain">${file.body || "チェーンメールだ。"}</div>
+          <div class="res-choices">
+            <button class="win98-btn" data-choice="forward">転送する</button>
+            <button class="win98-btn primary" data-choice="ignorechain">無視する</button>
+          </div>`;
+        paint(); return;
+      }
+    }
+
+    // 通常ファイル: 即取得
+    const value = game.acquireFile(file, completion);
+    resolved = true;
+    extraHtml = `<div class="res-earn">売却額 <b>+${formatMoney(value)}</b></div>`;
+    if(kind === "archive"){
+      resolved = false;
+      extraHtml += `<div class="res-choices"><button class="win98-btn primary" data-choice="unpack">🗜 解凍する</button></div>`;
+    } else if(kind === "image"){
+      extraHtml += `<div class="res-choices"><button class="win98-btn" data-choice="wallpaper">🖼 壁紙に設定</button></div>`;
+    } else if(kind === "midi"){
+      extraHtml += `<div class="res-choices"><button class="win98-btn" data-choice="bgm">🎵 BGMに設定</button></div>`;
+    } else if(kind === "soft"){
+      extraHtml += `<div class="res-choices"><button class="win98-btn" data-choice="install">💿 インストール</button></div>`;
+    }
+    paint();
   }
 
   /* ---------- モーダル ---------- */

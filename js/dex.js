@@ -23,8 +23,12 @@ const Dex = (function(){
     const regGot = FILES.filter(f=> d[f.name] > 0).length;
     const secTotal = Object.keys(SECRET_FILES).length;
     const secGot = secretList().filter(s=> (game.state.stats.secretUnlocked||{})[s.key] || d[s.file.name] > 0).length;
-    return { regTotal, regGot, secTotal, secGot,
-             total: regTotal + secTotal, got: regGot + secGot };
+    const extra = Object.keys(SIGNATURE_FILES).map(id=> SIGNATURE_FILES[id].name)
+      .concat(VIRUS_FILES.map(f=>f.name), CHAIN_FILES.map(f=>f.name));
+    const exTotal = extra.length;
+    const exGot = extra.filter(n=> d[n] > 0).length;
+    return { regTotal, regGot, secTotal, secGot, exTotal, exGot,
+             total: regTotal + secTotal + exTotal, got: regGot + secGot + exGot };
   }
 
   function fileCard(file, got, count, hidden){
@@ -90,6 +94,40 @@ const Dex = (function(){
         ${list.map(f=> fileCard(f, d[f.name]>0, d[f.name]||0, false)).join("")}
       </div>`;
     });
+
+    // 看板ファイル (各プロバイダ限定)
+    const sigIds = Object.keys(SIGNATURE_FILES);
+    const sigGot = sigIds.filter(id=> d[SIGNATURE_FILES[id].name] > 0).length;
+    html += `<div class="dex-era">
+      <div class="dex-era-head"><span>看板ファイル（各プロバイダ限定）</span><span>${sigGot}/${sigIds.length}</span></div>
+      ${sigIds.map(id=>{
+        const sf = Object.assign({ era:(ISPS.find(p=>p.id===id)||{}).era||"bbs" }, SIGNATURE_FILES[id]);
+        const got = d[sf.name] > 0;
+        const ispName = (ISPS.find(p=>p.id===id)||{}).name || id;
+        return `<div class="dex-card ${got?'':'dex-undiscovered'}">
+          <div class="dex-icon">${got?'🏷️':'❔'}</div>
+          <div class="dex-info"><div class="dex-name">${got?sf.name:'????????????'}</div>
+            <div class="dex-meta"><span style="color:${RARITY[sf.rarity].color}">${RARITY[sf.rarity].label}</span> ・ ${ispName} 限定</div></div>
+          <div class="dex-count">${got?'×'+d[sf.name]:'未取得'}</div>
+        </div>`;
+      }).join("")}
+    </div>`;
+
+    // ウイルス / チェーンメール
+    const misc = VIRUS_FILES.concat(CHAIN_FILES);
+    const miscGot = misc.filter(f=> d[f.name] > 0).length;
+    html += `<div class="dex-era">
+      <div class="dex-era-head"><span>危険物・迷惑物（ウイルス / チェーンメール）</span><span>${miscGot}/${misc.length}</span></div>
+      ${misc.map(f=>{
+        const got = d[f.name] > 0;
+        return `<div class="dex-card ${got?'':'dex-undiscovered'}">
+          <div class="dex-icon">${got?(f.virus?'☣':'✉'):'❔'}</div>
+          <div class="dex-info"><div class="dex-name">${got?f.name:'????????????'}</div>
+            <div class="dex-meta"><span style="color:${RARITY[f.rarity].color}">${RARITY[f.rarity].label}</span> ・ ${f.virus?'ウイルス':'チェーンメール'}</div></div>
+          <div class="dex-count">${got?'×'+d[f.name]:'未取得'}</div>
+        </div>`;
+      }).join("")}
+    </div>`;
 
     // 禁断のファイル
     const secs = secretList();

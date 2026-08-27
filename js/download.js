@@ -21,7 +21,8 @@ const Download = (function(){
     const bps = effectiveBps();
     const bytes = file.kb * 1024;
     const realSec = bytes / (bps/8);
-    const has = (m)=> ispHasMod(r.isp, m);
+    const adBlock = !!(game.state.installed && game.state.installed["hypernet_ad_blocker.exe"]);
+    const has = (m)=> ispHasMod(r.isp, m) && !((m === "l_ad" || m === "l_spy") && adBlock);
     const dlSpeedMod = (has("l_fast") ? 0.72 : 1) * (has("l_slow") ? 1.42 : 1);
     // 見て楽しめる長さに圧縮 (8〜40秒)
     const duration = Math.min(40, Math.max(7,
@@ -31,7 +32,12 @@ const Download = (function(){
     const eraIdx = eraIndex(r.modem.era);
     const longThreshold = [22, 30, 40, 70, 999][eraIdx];
 
-    const noiseFactor = has("l_clean") ? 2.0 : has("l_noisy") ? 0.5 : 1;
+    let noiseFactor = has("l_clean") ? 2.0 : has("l_noisy") ? 0.5 : 1;
+    if(r.infected && r.infected.type === "noise") noiseFactor *= 0.35;
+    if(r.infected && r.infected.type === "heat"){
+      game.state.modemHeat = Math.max(game.state.modemHeat, game.heatThreshold() + 15);
+      game.state.heatUpdatedAt = Date.now();
+    }
     st = {
       file, bps, duration, longThreshold,
       m_ad: has("l_ad"), m_spy: has("l_spy"), m_cap: has("l_cap"),
@@ -479,12 +485,8 @@ const Download = (function(){
     const file = st.file;
     game.addHeat(Math.min(30, st.elapsed * 0.9));
     const bill = game.settleBill();
-    const value = game.acquireFile(file, completion);
     game.save();
-    UI.showDownloadResult({
-      file, completion, ok, reason, value, bill,
-      corrupted: completion < 0.999
-    });
+    UI.showDownloadResult({ file, completion, ok, reason, bill, kind: fileKind(file) });
   }
 
   /* ---- 表示ヘルパ ---- */

@@ -15,6 +15,7 @@ const game = {
       soundOffed:false, crtOffed:false, radioOffed:false,
       tutorialSeen:false, tutHints:{},
       modemHeat: 0, heatUpdatedAt: Date.now(),
+      infected: null, wallpaper: null, bgm: null, installed: {},
       achUnlocked: {},
       // ラン中の一時データ
       run: null,
@@ -36,7 +37,9 @@ const game = {
         gotArchiveOfWeb:false,
         startMenuOpened:false, dosUsed:false, bsod:false, konami:false,
         phoneBillPaid:0, telehoConnects:0, overheatDrops:0, blackoutSaved:0,
-        catchAnswered:0, catchIgnored:0, applianceHits:0
+        catchAnswered:0, catchIgnored:0, applianceHits:0,
+        signaturesGot:{}, chainGot:0, chainForwarded:0, archivesOpened:0,
+        virusQuarantined:0, virusOpened:0, salvaged:0, wallpapersSet:0, bgmSet:0, softInstalled:0
       }
     };
   },
@@ -196,8 +199,10 @@ const game = {
       perfectSoFar:true,
       hiddenDial:null, secretFileKey:null,
       handshakeMs:0,
-      billStart: Date.now(), billFree: isTelehoTime(), billSettled:false
+      billStart: Date.now(), billFree: isTelehoTime(), billSettled:false,
+      infected: this.state.infected
     };
+    this.state.infected = null;   // 感染は次の1接続で消費
     checkAchievements();
     return this.state.run;
   },
@@ -246,7 +251,8 @@ const game = {
   },
 
   /* ---- ファイル取得 ---- */
-  acquireFile(file, completion){
+  acquireFile(file, completion, opts){
+    opts = opts || {};
     const s = this.state.stats;
     s.filesGot++;
     s.distinctFiles[file.name] = (s.distinctFiles[file.name]||0) + 1;
@@ -254,11 +260,33 @@ const game = {
     if(s.filesByRarity[rk] != null) s.filesByRarity[rk]++;
     if(completion < 0.999) s.corruptedFiles++;
     if(file.name === "archive_of_the_web.warc" && completion >= 0.999) s.gotArchiveOfWeb = true;
+    if(file.signature) s.signaturesGot = (s.signaturesGot||{}), s.signaturesGot[file.signature] = 1;
+    if(file.chain) s.chainGot = (s.chainGot||0) + 1;
 
-    const value = fileValue(file, completion, this.state.run);
+    let value = fileValue(file, completion, this.state.run);
+    if(opts.quarantine) value = Math.round(value * 0.35);
+    if(file.chain) value = Math.round(value * 0.5);
     this.addMoney(value);
     checkAchievements();
     return value;
+  },
+
+  /* ---- 解凍: アーカイブの中身を展開 ---- */
+  unpackArchive(file){
+    const ei = eraIndex(file.era);
+    const n = 2 + Math.floor(Math.random()*2);
+    const out = [];
+    const pool = FILES.filter(f=> eraIndex(f.era) <= ei && (f.rarity==="common"||f.rarity==="uncommon"));
+    for(let i=0;i<n;i++){
+      const pick = pool[Math.floor(Math.random()*pool.length)];
+      if(!pick) continue;
+      const f = Object.assign({}, pick);
+      const v = this.acquireFile(f, 1);
+      out.push({ file:f, value:v });
+    }
+    this.state.stats.archivesOpened = (this.state.stats.archivesOpened||0) + 1;
+    checkAchievements();
+    return out;
   },
 
   tickPlaytime(sec){
@@ -310,6 +338,22 @@ function pickWeather(){
 
 function pickFile(isp){
   const ei = eraIndex(game.modem().era);
+
+  // 特殊抽選: 看板ファイル / ウイルス / チェーンメール
+  const sig = isp && SIGNATURE_FILES[isp.id];
+  if(sig && !game.state.stats.distinctFiles[sig.name] && Math.random() < 0.10)
+    return Object.assign({ era: isp.era, signature: isp.id }, sig);
+  if(sig && Math.random() < 0.02)
+    return Object.assign({ era: isp.era, signature: isp.id }, sig);
+  if(Math.random() < 0.022){
+    const vp = VIRUS_FILES.filter(v=> Math.abs(eraIndex(v.era) - ei) <= 1);
+    if(vp.length) return Object.assign({}, vp[Math.floor(Math.random()*vp.length)]);
+  }
+  if(Math.random() < 0.03){
+    const cp = CHAIN_FILES.filter(c=> Math.abs(eraIndex(c.era) - ei) <= 1);
+    if(cp.length) return Object.assign({}, cp[Math.floor(Math.random()*cp.length)]);
+  }
+
   // rarity 抽選 (ISP luck で上振れ)
   let luck = isp ? isp.luck : 1;
   if(ispHasMod(isp, "e_lucky")) luck *= 1.35;
