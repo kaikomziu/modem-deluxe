@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MODEM DELUXE</title>
+<meta name="description" content="90年代のダイヤルアップ接続を忠実再現。3段階のハンドシェイクを毎回こなして接続し、落としたファイルを売って300bpsから5Gまで回線を進化させる。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%93%9F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-screen="boot">
+
+<div id="crt" class="crt">
+  <div class="crt-frame">
+    <main id="viewport" class="viewport">
+
+      <section id="bootScreen"        class="screen active"></section>
+      <section id="desktopScreen"     class="screen"></section>
+      <section id="ispSelectScreen"   class="screen"></section>
+      <section id="upgradeScreen"     class="screen"></section>
+
+      <section id="handshakeScreen" class="screen">
+        <div class="hs-topbar">
+          <div class="hs-brand">MODEM DELUXE</div>
+          <div id="hsHeader" class="hs-header"></div>
+        </div>
+        <div class="hs-timebar-wrap"><div id="hsTimebar" class="hs-timebar"></div></div>
+        <div class="hs-stage-head">
+          <h2 id="hsStageTitle">ハンドシェイク</h2>
+          <p id="hsStageHint"></p>
+        </div>
+        <div id="hsStage" class="hs-stage"></div>
+      </section>
+
+      <section id="connectFlashScreen" class="screen"></section>
+      <section id="downloadScreen"     class="screen"></section>
+      <section id="resultScreen"       class="screen"></section>
+      <section id="noCarrierScreen"    class="screen"></section>
+
+    </main>
+
+    <div class="crt-scanlines"></div>
+    <div class="crt-vignette"></div>
+    <div class="crt-glow"></div>
+  </div>
+</div>
+
+<div id="toastLayer"  class="toast-layer"></div>
+<div id="bannerLayer" class="banner-layer"></div>
+
+<div id="modalLayer" class="modal-layer">
+  <div id="achModal" class="modal">
+    <div class="win98 modal-win">
+      <div class="win98-title"><span>🏆 実績</span><span class="win98-x" data-close-modal>✕</span></div>
+      <div class="win98-body">
+        <div id="achBody" class="modal-scroll"></div>
+      </div>
+    </div>
+  </div>
+  <div id="changelogModal" class="modal">
+    <div class="win98 modal-win">
+      <div class="win98-title"><span>📜 更新履歴</span><span class="win98-x" data-close-modal>✕</span></div>
+      <div class="win98-body">
+        <div id="changelogBody" class="modal-scroll"></div>
+        <p class="modal-foot">MODEM DELUXE — セーブはこのブラウザ内にのみ保存されます。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<span id="achCount" hidden></span>
+
+<script src="js/version.js"></script>
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/handshake.js"></script>
+<script src="js/download.js"></script>
+<script src="js/upgrades.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
