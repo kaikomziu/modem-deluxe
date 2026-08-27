@@ -34,6 +34,7 @@ const PC = (function(){
             <div class="start-sub">
               <div class="start-item" data-sm="sound">${Sound.isEnabled()?"🔇 サウンドOFF":"🔊 サウンドON"}</div>
               <div class="start-item" data-sm="crt">📺 CRT効果 切替</div>
+              <div class="start-item" data-sm="props">🖥 画面のプロパティ</div>
               <div class="start-item" data-sm="wipe">🗑 セーブデータを消去</div>
             </div>
           </div>
@@ -77,6 +78,7 @@ const PC = (function(){
         document.getElementById("crt").classList.toggle("crt-off");
         if(document.getElementById("crt").classList.contains("crt-off")){ game.state.stats.crtOffed = true; game.save(); checkAchievements(); }
         break;
+      case "props":    displayProps(); break;
       case "wipe":
         if(confirm("本当にセーブデータを消去しますか? この操作は元に戻せません。")){
           game.reset(); location.reload();
@@ -374,5 +376,154 @@ const PC = (function(){
     setTimeout(()=>{ document.addEventListener("pointerdown", kill); document.addEventListener("keydown", kill); }, 400);
   }
 
-  return { toggleStartMenu, openDos, bsod, armDesktop, disarm };
+  /* ================= デスクトップ右クリック ================= */
+  function contextMenu(x, y){
+    clear();
+    L().classList.add("active");
+    L().innerHTML = `
+      <div class="start-backdrop" id="ctxBackdrop"></div>
+      <div class="ctx-menu" style="left:${Math.min(x, innerWidth-180)}px;top:${Math.min(y, innerHeight-160)}px">
+        <div class="start-item" data-ctx="refresh">🔄 最新の情報に更新</div>
+        <div class="start-item" data-ctx="arrange">📐 アイコンの整列</div>
+        <div class="start-sep"></div>
+        <div class="start-item" data-ctx="props">🖥 画面のプロパティ</div>
+      </div>`;
+    document.getElementById("ctxBackdrop").onclick = clear;
+    L().querySelectorAll("[data-ctx]").forEach(el=> el.onclick = ()=>{
+      Sound.click(); const a = el.dataset.ctx; clear();
+      if(a === "refresh") UI.desktop();
+      else if(a === "arrange") UI.desktop();
+      else if(a === "props") displayProps();
+    });
+  }
+
+  function applyColorDepth(){
+    const crt = document.getElementById("crt");
+    crt.classList.remove("col-16","col-256");
+    if(game.state.screenColors === "16") crt.classList.add("col-16");
+    else if(game.state.screenColors === "256") crt.classList.add("col-256");
+  }
+
+  function displayProps(){
+    L().classList.add("active");
+    game.state.stats.propsOpened = true; game.save(); checkAchievements();
+    const d = game.state.stats.distinctFiles || {};
+    const imgs = Object.keys(d).filter(n=> ["image"].includes(fileKind({name:n})));
+    const midis = Object.keys(d).filter(n=> ["midi"].includes(fileKind({name:n})));
+    const colors = [["teal","#1a7d7d"],["navy","#082567"],["maroon","#5a1a1a"],["olive","#5a5a1a"],["gray","#3a3a3a"]];
+    L().innerHTML = `
+      <div class="props-win">
+        <div class="win98-title"><span>画面のプロパティ</span><span class="win98-x" id="propsX">✕</span></div>
+        <div class="win98-body props-body">
+          <div class="props-section">
+            <b>壁紙</b>
+            <select id="propWall">
+              <option value="">(なし・単色)</option>
+              ${imgs.map(n=>`<option value="${n}" ${game.state.wallpaper===n?"selected":""}>${n}</option>`).join("")}
+            </select>
+          </div>
+          <div class="props-section">
+            <b>背景色</b>
+            <div class="props-swatches">
+              ${colors.map(([k,c])=>`<button class="props-sw ${game.state.bgColor===k?'on':''}" data-bg="${k}" style="background:${c}"></button>`).join("")}
+            </div>
+          </div>
+          <div class="props-section">
+            <b>色数</b>
+            <div class="props-radios">
+              ${[["16","16色"],["256","256色"],["full","フルカラー"]].map(([k,l])=>
+                `<label><input type="radio" name="cols" value="${k}" ${game.state.screenColors===k?"checked":""}> ${l}</label>`).join("")}
+            </div>
+          </div>
+          <div class="props-section">
+            <b>デスクトップBGM</b>
+            <select id="propBgm">
+              <option value="">(なし)</option>
+              ${midis.map(n=>`<option value="${n}" ${game.state.bgm===n?"selected":""}>${n}</option>`).join("")}
+            </select>
+          </div>
+          <button class="win98-btn primary" id="propsOk">OK</button>
+        </div>
+      </div>`;
+    document.getElementById("propsX").onclick = clear;
+    L().querySelectorAll("[data-bg]").forEach(b=> b.onclick = ()=>{
+      game.state.bgColor = b.dataset.bg; game.state.wallpaper = null;
+      L().querySelectorAll("[data-bg]").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");
+      document.getElementById("propWall").value = "";
+    });
+    document.getElementById("propsOk").onclick = ()=>{
+      game.state.wallpaper = document.getElementById("propWall").value || game.state.wallpaper;
+      if(!document.getElementById("propWall").value) game.state.wallpaper = null;
+      game.state.bgm = document.getElementById("propBgm").value || null;
+      const c = L().querySelector('input[name="cols"]:checked');
+      if(c) game.state.screenColors = c.value;
+      game.save();
+      applyColorDepth();
+      Sound.ok(); clear();
+      UI.desktop();
+    };
+  }
+
+  /* ================= チャット (IRC風) ================= */
+  function openChat(fromResult){
+    L().classList.add("active");
+    game.state.stats.chatVisits++;
+    const room = "#modem" + (10 + Math.floor(Math.random()*80));
+    const lines = [];
+    const n = 3 + Math.floor(Math.random()*3);
+    const npcs = [...CHAT_NPCS].sort(()=>Math.random()-0.5);
+    let tipGiven = null;
+    for(let i=0;i<n;i++){
+      const who = npcs[i % npcs.length];
+      if(!tipGiven && Math.random() < 0.4){
+        const tip = CHAT_TIPS[Math.floor(Math.random()*CHAT_TIPS.length)];
+        lines.push({ who, text: tip.line });
+        tipGiven = tip.dial;
+      } else {
+        lines.push({ who, text: CHAT_LINES[Math.floor(Math.random()*CHAT_LINES.length)] });
+      }
+    }
+    if(tipGiven){
+      game.state.learnedDials[tipGiven] = Date.now();
+      game.state.stats.chatTips++;
+    }
+    game.save(); checkAchievements();
+
+    L().innerHTML = `
+      <div class="chat-win">
+        <div class="win98-title"><span>チャット — ${room}</span><span class="win98-x" id="chatX">✕</span></div>
+        <div class="chat-body" id="chatBody"></div>
+        <div class="chat-input-row">
+          <span>&lt;you&gt;</span><input id="chatInput" class="chat-input" autocomplete="off" placeholder="発言してみる…">
+        </div>
+      </div>`;
+    document.getElementById("chatX").onclick = ()=>{ Sound.click(); clear(); if(fromResult) UI.desktop(); };
+    const body = document.getElementById("chatBody");
+    function post(who, text){
+      const el = document.createElement("div");
+      el.className = "chat-msg" + (who === "you" ? " me" : "");
+      el.innerHTML = `<b>&lt;${who}&gt;</b> ${text.replace(/\*\*\*\*\*\*/g, tipGiven ? `<span class="chat-dial">${tipGiven}</span>` : "??????")}`;
+      body.appendChild(el); body.scrollTop = body.scrollHeight;
+      Sound.tone(1200, 0.03, "square", 0.04);
+    }
+    lines.forEach((l,i)=> setTimeout(()=> post(l.who, l.text), 400 + i*900));
+    if(tipGiven) setTimeout(()=>{
+      UI.banner("番号『" + tipGiven + "』を教わった。手動ダイヤルで試せる", "good");
+    }, 400 + lines.length*900 + 300);
+
+    const inp = document.getElementById("chatInput");
+    setTimeout(()=> inp.focus(), 100);
+    inp.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter" && inp.value.trim()){
+        post("you", inp.value.trim()); inp.value = "";
+        setTimeout(()=>{
+          const who = CHAT_NPCS[Math.floor(Math.random()*CHAT_NPCS.length)];
+          post(who, ["ふーん","そうなんだ","こっちもそんな感じ","(反応なし)","www","乙"][Math.floor(Math.random()*6)]);
+        }, 700 + Math.random()*800);
+      }
+    });
+  }
+
+  return { toggleStartMenu, openDos, bsod, armDesktop, disarm, contextMenu, displayProps, openChat, applyColorDepth };
 })();

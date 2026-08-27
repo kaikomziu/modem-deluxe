@@ -236,7 +236,21 @@ const ACHIEVEMENTS = [].concat(
   tierAch("parts","partsFound",[1,20,100],
     (n)=> `パーツ収集 ${n}`, (n)=> `ジャンクパーツを通算${n}個拾った。`, true),
   { id:"sp_perkmax", name:"生まれ変わり", desc:"プレステージperkを何か1つ最大にした。", hidden:false,
-    check:(s)=> Object.keys(PRESTIGE_PERKS).some(k=> (game.state.prestige.perks[k]||0) >= PRESTIGE_PERKS[k].levels.length) }
+    check:(s)=> Object.keys(PRESTIGE_PERKS).some(k=> (game.state.prestige.perks[k]||0) >= PRESTIGE_PERKS[k].levels.length) },
+
+  // --- バッチ4: PC深掘り ---
+  tierAch("chat","chatVisits",[1,10,50,200],
+    (n)=> n===1 ? "チャットデビュー" : `チャット常連 ${n}`,
+    (n)=> `IRC風チャットに${n}回参加した。`),
+  tierAch("chattip","chatTips",[1,5,15],
+    (n)=> `耳より情報 ${n}`, (n)=> `チャットで隠し番号のヒントを${n}回もらった。`, true),
+  { id:"sp_props", name:"模様替え(本格)", desc:"画面のプロパティを開いた。", hidden:true,
+    check:(s)=> s.propsOpened },
+  { id:"sp_16color", name:"16色の世界", desc:"色数を16色に設定した。", hidden:true,
+    check:(s)=> game.state.screenColors === "16" },
+  tierAch("burn","burnMax",[0.15,0.3],
+    (n)=> n>=0.3 ? "焼き付いた画面" : "焼き付きの兆候",
+    (n)=> `デスクトップを放置しすぎて画面が焼き付いた。スクリーンセーバーを使いなさい。`, true)
 );
 
 // _hiddenSize / _distinctSize は疑似 stat。checkの直前に埋める。

@@ -118,6 +118,7 @@ const Handshake = (function(){
           <button class="key key-wide" id="dialBack">⌫ 訂正</button>
           <button class="key key-wide" id="dialManual">手動ダイヤル</button>
         </div>
+        ${Object.keys(game.state.learnedDials||{}).length ? `<div class="dial-memo">教わった番号: ${Object.keys(game.state.learnedDials).map(k=>`<button class="dial-memo-chip" data-memo="${k}">${k}</button>`).join(" ")}</div>` : ""}
       </div>`;
 
     Sound.startDialTone();
@@ -226,6 +227,12 @@ const Handshake = (function(){
     }
 
     stageEl.querySelectorAll(".key[data-k]").forEach(b=> b.onclick = ()=> press(b.dataset.k));
+    stageEl.querySelectorAll("[data-memo]").forEach(b=> b.onclick = ()=>{
+      Sound.click();
+      const code = b.dataset.memo;
+      const hd = HIDDEN_DIALS[code];
+      if(hd){ Sound.stopDialTone(); r.hiddenDial = Object.assign({ code }, hd); proceed(); }
+    });
     stageEl.querySelector("#dialBack").onclick = ()=>{
       Sound.click();
       if(manual) manualStr = manualStr.slice(0,-1); else entered = "";

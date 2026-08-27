@@ -10,6 +10,19 @@
 </head>
 <body data-screen="boot">
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <filter id="posterize16"><feComponentTransfer>
+    <feFuncR type="discrete" tableValues="0 .33 .67 1"/>
+    <feFuncG type="discrete" tableValues="0 .33 .67 1"/>
+    <feFuncB type="discrete" tableValues="0 .2 .4 .6 .8 1"/>
+  </feComponentTransfer></filter>
+  <filter id="posterize256"><feComponentTransfer>
+    <feFuncR type="discrete" tableValues="0 .16 .33 .5 .67 .83 1"/>
+    <feFuncG type="discrete" tableValues="0 .16 .33 .5 .67 .83 1"/>
+    <feFuncB type="discrete" tableValues="0 .16 .33 .5 .67 .83 1"/>
+  </feComponentTransfer></filter>
+</defs></svg>
+
 <div id="crt" class="crt">
   <div class="crt-frame">
     <main id="viewport" class="viewport">
@@ -42,6 +55,7 @@
     <div class="crt-scanlines"></div>
     <div class="crt-vignette"></div>
     <div class="crt-glow"></div>
+    <div id="burnLayer" class="crt-burn"></div>
   </div>
 </div>
 

@@ -19,6 +19,8 @@ const game = {
       prestige: { points: 0, perks: {}, count: 0 },
       uploads: {}, uploadBank: 0, uploadCollectedAt: Date.now(),
       parts: 0,
+      learnedDials: {}, burnIn: 0,
+      screenColors: "full", bgColor: "teal",
       achUnlocked: {},
       // ラン中の一時データ
       run: null,
@@ -44,7 +46,8 @@ const game = {
         signaturesGot:{}, chainGot:0, chainForwarded:0, archivesOpened:0,
         virusQuarantined:0, virusOpened:0, salvaged:0, wallpapersSet:0, bgmSet:0, softInstalled:0,
         prestigeCount:0, uploadIncome:0, haggleWins:0, haggleBlown:0, partsFound:0, partsSpent:0,
-        ghostRaces:0, ghostWins:0, y2kSurvived:false, timeAttackBest:0
+        ghostRaces:0, ghostWins:0, y2kSurvived:false, timeAttackBest:0,
+        chatVisits:0, chatTips:0, minesweeperWins:0, memoryWins:0, paintSaved:0, trashEmptied:0, burnMax:0
       }
     };
   },

@@ -12,6 +12,23 @@
       if(game.state.stats.playSeconds % 30 === 0){ checkAchievements(); game.save(); }
     }, 5000);
 
+    // 画面の焼き付き
+    let lastAct = Date.now();
+    ["pointermove","keydown","pointerdown"].forEach(ev=> document.addEventListener(ev, ()=> lastAct = Date.now()));
+    setInterval(()=>{
+      const idle = (Date.now() - lastAct) / 1000;
+      const ss = !!document.querySelector(".screensaver");
+      if(ss){
+        game.state.burnIn = Math.max(0, (game.state.burnIn||0) - 0.03);
+      } else if(idle > 20 && document.body.dataset.screen === "desktop"){
+        game.state.burnIn = Math.min(0.4, (game.state.burnIn||0) + 0.004);
+        game.state.stats.burnMax = Math.max(game.state.stats.burnMax||0, game.state.burnIn);
+      }
+      const bl = document.getElementById("burnLayer");
+      if(bl) bl.style.opacity = (game.state.burnIn || 0).toFixed(3);
+      checkAchievements();
+    }, 2000);
+
     // モーダルの閉じるボタン
     document.querySelectorAll("[data-close-modal]").forEach(b=>{
       b.onclick = ()=>{ Sound.click(); UI.closeModal(); };
@@ -33,6 +50,7 @@
     });
 
     updateAchBadge();
+    if(typeof PC !== "undefined") PC.applyColorDepth();
     UI.boot();
   }
 

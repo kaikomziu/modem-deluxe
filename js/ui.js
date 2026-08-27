@@ -75,7 +75,10 @@ const UI = (function(){
     const m = game.modem();
     const scr = document.getElementById("desktopScreen");
     if(game.state.bgm && Sound.isEnabled()) Sound.startBgm(game.state.bgm);
-    const wp = game.state.wallpaper ? ` style="${wallpaperStyle(game.state.wallpaper)}"` : "";
+    const bgColors = { teal:"linear-gradient(135deg,#2a9d9d,#0d6b6b)", navy:"linear-gradient(135deg,#0b3a8a,#061c47)",
+      maroon:"linear-gradient(135deg,#7a2a2a,#3a1010)", olive:"linear-gradient(135deg,#7a7a2a,#3a3a10)", gray:"linear-gradient(135deg,#4a4a4a,#242424)" };
+    const wp = game.state.wallpaper ? ` style="${wallpaperStyle(game.state.wallpaper)}"`
+      : ` style="background:${bgColors[game.state.bgColor]||bgColors.teal}"`;
     scr.innerHTML = `
       <div class="desk-bg"${wp}>
         <div class="desk-icons">
@@ -114,6 +117,7 @@ const UI = (function(){
       </div>`;
 
     scr.querySelector("#tbStart").onclick = ()=>{ PC.toggleStartMenu(); };
+    scr.querySelector(".desk-bg").oncontextmenu = (e)=>{ e.preventDefault(); PC.contextMenu(e.clientX, e.clientY); };
     scr.querySelector("#deskConnect").onclick = ()=>{ Sound.click(); ispSelect(); };
     scr.querySelector('[data-icon="connect"]').onclick = ()=>{ Sound.click(); ispSelect(); };
     scr.querySelector('[data-icon="upgrade"]').onclick = ()=>{ Sound.click(); openUpgrades(); };
@@ -346,6 +350,7 @@ const UI = (function(){
     const scr = document.getElementById("resultScreen");
     const corrupted = completion < 0.999;
     let resolved = false, extraHtml = "";
+    const chatOffer = ok && kind !== "virus" && game.state.stats.connects >= 3 && Math.random() < 0.25;
 
     function paint(){
       const nextModem = game.nextModem();
@@ -370,6 +375,7 @@ const UI = (function(){
           ${resolved && nextModem && game.state.money >= nextModem.price
             ? `<div class="res-hint">💡 <b>${nextModem.name}</b> が買える！</div>` : ""}
           <div class="res-actions" ${resolved?"":"hidden"}>
+            ${chatOffer ? `<button class="win98-btn" id="resChat">💬 チャットに参加する</button>` : ""}
             <button class="win98-btn primary" id="resAgain">もう一度接続 ▶</button>
             <button class="win98-btn" id="resUp">アップグレード</button>
             <button class="win98-btn" id="resDesk">デスクトップ</button>
@@ -380,6 +386,8 @@ const UI = (function(){
         scr.querySelector("#resAgain").onclick = ()=>{ Sound.click(); ispSelect(); };
         scr.querySelector("#resUp").onclick    = ()=>{ Sound.click(); openUpgrades(); };
         scr.querySelector("#resDesk").onclick  = ()=>{ Sound.click(); desktop(); };
+        const rc = scr.querySelector("#resChat");
+        if(rc) rc.onclick = ()=>{ Sound.click(); PC.openChat(true); };
       }
       wireChoices();
     }
