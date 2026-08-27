@@ -275,8 +275,8 @@ body{
 }
 
 /* ---------- download ---------- */
-#downloadScreen{ background:#1a7d7d; padding:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; }
-#downloadScreen.active{ display:flex; }
+#downloadScreen{ background:#1a7d7d; }
+#downloadScreen.active{ display:flex; padding:20px; flex-direction:column; align-items:center; justify-content:center; gap:14px; }
 #downloadScreen.shake-lite{ animation:shakeLite .2s infinite; }
 .dl-dlg{ width:min(440px,100%); }
 .dl-line{ font-size:12px; margin-bottom:4px; }
