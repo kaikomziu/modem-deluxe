@@ -55,7 +55,7 @@ const Download = (function(){
       capThrottled: false,
       finished: false,
       hudTick: 0, paused: false,
-      catchDone: false, blackoutDone: false,
+      catchDone: false, blackoutDone: false, phantomDone: false, phantom: null, taunts: 0,
       applianceTimer: (eraIdx <= 1) ? (3 + Math.random()*4) : 999,
       activeAppliance: null,
       radioTimer: 0.5, radioIdx: 0
@@ -192,6 +192,32 @@ const Download = (function(){
       catchPhone();
       raf = requestAnimationFrame(frame); return;
     }
+    // ライバル PHANTOM の速取り勝負
+    if(!st.phantomDone && st.progress > 0.28 && st.progress < 0.7 && Math.random() < 0.0035){
+      st.phantomDone = true;
+      st.phantom = { prog: st.progress - 0.04, speed: (1/st.duration) * (0.85 + Math.random()*0.55) };
+      game.state.stats.ghostRaces++;
+      UI.banner("⚡ PHANTOM が同じサーバーに接続してきた！ 速取り勝負だ", "info");
+      Sound.tone(300,0.2,"sawtooth",0.15);
+      renderPhantom();
+    }
+    if(st.phantom){
+      st.phantom.prog += dt * st.phantom.speed;
+      const pf = els.event; // reuse? no — separate bar
+      const bar = document.getElementById("phBar");
+      if(bar) bar.style.width = Math.min(100, st.phantom.prog*100) + "%";
+      if(st.phantom.prog >= 1){
+        // PHANTOM 勝利: ファイルを奪われる
+        st.phantom = null;
+        running = false; cancelAnimationFrame(raf); clearNoise();
+        Sound.connectFail();
+        game.state.stats.streak = 0;
+        game.settleBill(); game.save();
+        UI.showDownloadResult({ file: st.file, completion: 0.05, ok:false,
+          reason:"PHANTOM に先を越された。残っていたのは断片だけ…", bill: game.lastBill||0, kind:"data", stolen:true });
+        return;
+      }
+    }
     // 熱暴走
     if(heatCrit && !st.overheatRolled && st.progress > 0.5){
       st.overheatRolled = true;
@@ -287,7 +313,10 @@ const Download = (function(){
     els.status.textContent = s;
     document.getElementById("downloadScreen").classList.toggle("shake-lite", longRisk > 0.02);
 
-    if(st.progress >= 1){ return complete(); }
+    if(st.progress >= 1){
+      if(st.phantom){ st.phantomWon = true; game.state.stats.ghostWins++; }
+      return complete();
+    }
     raf = requestAnimationFrame(frame);
   }
 
@@ -371,6 +400,24 @@ const Download = (function(){
       Sound.coin(); Sound.ok();
       game.state.stats.dataCharges = (game.state.stats.dataCharges||0) + 1;
       checkAchievements();
+    };
+  }
+
+  /* ---- PHANTOM 速取り ---- */
+  function renderPhantom(){
+    const layer = els.noiseLayer;
+    const el = document.createElement("div");
+    el.className = "dl-phantom";
+    el.innerHTML = `
+      <div class="ph-label">⚡ PHANTOM</div>
+      <div class="ph-track"><div class="ph-bar" id="phBar"></div></div>
+      <button class="win98-btn ph-taunt" id="phTaunt">回線を煽る（連打）</button>`;
+    layer.appendChild(el);
+    el.querySelector("#phTaunt").onclick = ()=>{
+      st.taunts++;
+      st.speedMul = Math.min(2.2, (st.speedMul || 1) + 0.15);
+      st.slowUntil = st.elapsed + 1.2;
+      Sound.tone(1200 + st.taunts*20, 0.03, "square", 0.06);
     };
   }
 
@@ -487,7 +534,7 @@ const Download = (function(){
     game.addHeat(Math.min(30, st.elapsed * 0.9));
     const bill = game.settleBill();
     game.save();
-    UI.showDownloadResult({ file, completion, ok, reason, bill, kind: fileKind(file) });
+    UI.showDownloadResult({ file, completion, ok, reason, bill, kind: fileKind(file), phantomWon: st.phantomWon });
   }
 
   /* ---- 表示ヘルパ ---- */

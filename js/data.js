@@ -23,7 +23,12 @@ const MODEMS = [
   { id:13, name:"光 100Mbps (FTTH)",     sub:"上りも下りも同じ速度という夢",       bps:100000000,  price:40000000,   digits:0,  mode:"instant", era:"modern",    color:"#3f74a5" },
   { id:14, name:"光 1Gbps",              sub:"回線速度を気にしなくなる日",         bps:1000000000, price:90000000,   digits:0,  mode:"instant", era:"modern",    color:"#3f9c93" },
   { id:15, name:"光 10Gbps",             sub:"家庭の域を超えた帯域",               bps:10000000000,price:200000000,  digits:0,  mode:"instant", era:"modern",    color:"#3fa56c" },
-  { id:16, name:"5G モバイル",           sub:"線すら無い。全部終わった。",         bps:12000000000,price:500000000,  digits:0,  mode:"instant", era:"modern",    color:"#8aa53f" }
+  { id:16, name:"5G モバイル",           sub:"線すら無い。全部終わった。",         bps:12000000000,price:500000000,  digits:0,  mode:"instant", era:"modern",    color:"#8aa53f" },
+  // --- エンドレス: 5G の先(架空) ---
+  { id:17, name:"10G-EPON",             sub:"家庭用の常識を超えた。",             bps:1e11,       price:1.2e9,      digits:0,  mode:"instant", era:"modern",    color:"#6ac0a0" },
+  { id:18, name:"衛星コンステレーション", sub:"空を見上げれば数千の中継器。",       bps:5e11,       price:3e9,        digits:0,  mode:"instant", era:"modern",    color:"#5aa8d0" },
+  { id:19, name:"量子もつれ回線",         sub:"遅延ゼロ。理屈は聞くな。",           bps:5e12,       price:9e9,        digits:0,  mode:"instant", era:"modern",    color:"#9a7ad0" },
+  { id:20, name:"次元間バックボーン",     sub:"どこかの誰かと直結している。",       bps:1e14,       price:3e10,       digits:0,  mode:"instant", era:"modern",    color:"#d06a9a" }
 ];
 
 /* ---------- ISP (era 別、名前はパロディ) ---------- */
@@ -184,6 +189,8 @@ const FILES = [
   { name:"demo_scene_64k.exe",      kb:64,    era:"web1", rarity:"rare" },
   { name:"leaked_ost_lossless.zip", kb:900,   era:"web1", rarity:"rare" },
   { name:"the_lost_shareware.iso",  kb:2400,  era:"web1", rarity:"legendary" },
+  { name:"clock_gadget_v2.exe",     kb:44,    era:"web1", rarity:"uncommon" },
+  { name:"midi_favorites_bonus.zip",kb:180,   era:"web1", rarity:"uncommon" },
   // --- web2 era ---
   { name:"flash_game_pack.swf",     kb:1200,  era:"web2", rarity:"common" },
   { name:"desktop_wallpaper_hd.jpg",kb:800,   era:"web2", rarity:"common" },
@@ -419,6 +426,53 @@ const NEWS = [
   { at:450,  text:"「あの接続音、懐かしい」— ダイヤルアップが集団的記憶に" },
   { at:600,  text:"5G 商用化。もはや回線速度を気にする人はいない" }
 ];
+
+/* ---------- 簡易ブラウザで巡回できる当時風サイト ---------- */
+const WEBSITES = {
+  portal: {
+    title:"MODEM NAVIGATOR", url:"http://www.modem-navi.ne.jp/",
+    body:"ようこそ！ここは あなたのインターネットの入口です。<br>本日のアクセスカウンタ: <b>001337</b>",
+    links:[["ring","● WEBリング『深夜組』"],["diary","● とあるSEの日記"],["download","● フリーソフト置き場"],["bbs2","● 掲示板『回線の間』"],["secret_link","● ......"]]
+  },
+  ring: {
+    title:"WEBリング『深夜組』", url:"http://www.geocities.co.jp/midnight_ring/",
+    body:"深夜にネットしている人たちのサイトを繋ぐ輪。<br>&lt; previous | <b>random</b> | next &gt;",
+    links:[["portal","← ナビゲーターに戻る"],["fanpage","● 『56kモデム同好会』"],["diary","● とあるSEの日記"]]
+  },
+  diary: {
+    title:"とあるSEの日記", url:"http://www.example-pro.or.jp/~tanaka/diary/",
+    body:"8/28 (金)<br>また終電を逃した。会社のサーバーに 8080 でリモートログインして作業。<br>家に帰れないので今夜もここで dir を叩いている。",
+    links:[["portal","← 戻る"],["ring","← WEBリングへ"]],
+    dial:"8080"
+  },
+  download: {
+    title:"フリーソフト置き場", url:"http://www.vector-ish.co.jp/soft/",
+    body:"個人制作のフリーソフト・素材を配布しています。転載はご遠慮ください。",
+    links:[["portal","← 戻る"]],
+    grants:[
+      { name:"clock_gadget_v2.exe", kb:44, era:"web1", rarity:"uncommon" },
+      { name:"midi_favorites_bonus.zip", kb:180, era:"web1", rarity:"uncommon" }
+    ]
+  },
+  bbs2: {
+    title:"掲示板『回線の間』", url:"http://bbs.modem-navi.ne.jp/kaisen/",
+    body:"12: 名無し: テレホ入ったage<br>13: 名無し: 31337 にダイヤルするとアングラBBSに繋がるってマジ?<br>14: 名無し: &gt;&gt;13 自己責任で",
+    links:[["portal","← 戻る"]],
+    dial:"31337"
+  },
+  fanpage: {
+    title:"56kモデム同好会", url:"http://www.example.ne.jp/~modem56k/",
+    body:"V.90 と V.92 の違いを熱く語るサイトです。<br>管理人の私物モデムコレクション写真あり(工事中)。",
+    links:[["ring","← WEBリングへ"],["portal","← ナビゲーターへ"]],
+    egg:"『このサイトはNetscape Navigator 4.0 で最適に表示されます』の文字が眩しい。"
+  },
+  secret_link: {
+    title:"█████████", url:"http://???.???.???.???/",
+    body:"アクセス記録を確認しています…<br>……あなたのIPは記録されました。冗談です。<br>ここは何もない場所です。番号を1つ、置いていきます: <b>0721</b>",
+    links:[["portal","← 逃げる"]],
+    dial:"0721"
+  }
+};
 
 /* ---------- 接続経路 (ダイヤル前に選ぶ) ---------- */
 const ROUTES = [

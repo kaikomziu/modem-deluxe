@@ -22,6 +22,7 @@ const game = {
       learnedDials: {}, burnIn: 0,
       screenColors: "full", bgColor: "teal",
       paintArt: {}, iconPos: {}, trash: {}, skipRoute: false, lastRoute: "standard",
+      challenge: null,
       achUnlocked: {},
       // ラン中の一時データ
       run: null,
@@ -151,11 +152,20 @@ const game = {
 
   /* ---- モデム購入 ---- */
   nextModem(){ return MODEMS[this.state.maxTier + 1]; },
+  modemLocked(){
+    const ch = this.challengeDef();
+    if(!ch) return false;
+    if(ch.noModem) return true;
+    if(ch.capTier != null && this.state.maxTier >= ch.capTier) return true;
+    return false;
+  },
   canBuyModem(){
+    if(this.modemLocked()) return false;
     const next = this.nextModem();
     return next && this.state.money >= next.price;
   },
   buyModem(){
+    if(this.modemLocked()) return false;
     const next = this.nextModem();
     if(!next || this.state.money < next.price) return false;
     this.state.money -= next.price;
@@ -246,6 +256,9 @@ const game = {
 
     if(r.perfectSoFar && r.dialErrors === 0 && r.carrierMisses === 0){
       s.perfectHandshakes++;
+      s._noMissStreak = (s._noMissStreak || 0) + 1;
+    } else {
+      s._noMissStreak = 0;
     }
     if(r.dialErrors === 0 && r.modem.digits > 0) s.perfectDials++;
     if(r.negoQuality >= 0.95) s.negotiationMax++;
@@ -427,10 +440,77 @@ const game = {
     return n;
   },
 
+  /* ---- チャレンジモード (タイムアタック / 縛り) ---- */
+  startChallenge(id){
+    const ch = CHALLENGES.find(c=> c.id === id);
+    if(!ch || this.state.challenge) return false;
+    try{ localStorage.setItem(SAVE_KEY + "_backup", JSON.stringify(this.state)); }catch(e){}
+    const keep = { achUnlocked:this.state.achUnlocked, tutorialSeen:true, tutHints:this.state.tutHints,
+      prestige:this.state.prestige, stats:this.state.stats,
+      soundOffed:this.state.soundOffed, crtOffed:this.state.crtOffed, radioOffed:this.state.radioOffed,
+      wallpaper:this.state.wallpaper, bgm:this.state.bgm, screenColors:this.state.screenColors, bgColor:this.state.bgColor };
+    const fresh = this.defaultState();
+    Object.assign(fresh, keep, { challenge:{ id, startedAt: Date.now(), ispLock:null } });
+    this.state = fresh;
+    this.save();
+    return true;
+  },
+  challengeDef(){ return this.state.challenge ? CHALLENGES.find(c=> c.id === this.state.challenge.id) : null; },
+  checkChallenge(){
+    const ch = this.challengeDef();
+    if(!ch || this.state.run) return;
+    if(ch.goal(this.state)){
+      const secs = Math.round((Date.now() - this.state.challenge.startedAt)/1000);
+      const s = this.state.stats;
+      s.challengeClears = (s.challengeClears||0) + 1;
+      s.challengeBest = s.challengeBest || {};
+      if(!s.challengeBest[ch.id] || secs < s.challengeBest[ch.id]) s.challengeBest[ch.id] = secs;
+      this.endChallenge(true, secs);
+      return { done:true, secs, ch };
+    }
+    return { done:false };
+  },
+  endChallenge(cleared, secs){
+    const ch = this.challengeDef();
+    let msg = "";
+    try{
+      const raw = localStorage.getItem(SAVE_KEY + "_backup");
+      if(raw){
+        const bk = JSON.parse(raw);
+        // 実績・プレステージ・図鑑の進捗は持ち帰る
+        bk.achUnlocked = this.state.achUnlocked;
+        bk.prestige = this.state.prestige;
+        bk.stats = this.state.stats;
+        if(cleared && ch){ bk.prestige.points += ch.reward; msg = ch.name + " クリア！ " + secs + "秒 ・ 通信ポイント +" + ch.reward; }
+        this.state = bk;
+        localStorage.removeItem(SAVE_KEY + "_backup");
+      }
+    }catch(e){}
+    this.state.challenge = null;
+    this.save();
+    checkAchievements();
+    return msg;
+  },
+
   tickPlaytime(sec){
     this.state.stats.playSeconds += sec;
   }
 };
+
+const CHALLENGES = [
+  { id:"speedrun", name:"タイムアタック（光まで）", reward:5,
+    desc:"300bpsから光回線(FTTH)に到達するまでの最速タイムを競う。",
+    goal:(s)=> s.maxTier >= 13 },
+  { id:"couplerrun", name:"カプラ縛り 100万円", reward:4,
+    desc:"回線は300bpsのまま(アップグレード禁止)。所持金100万円を目指す。",
+    goal:(s)=> s.money >= 1000000, noModem:true },
+  { id:"onemodem", name:"56k縛り 到達",  reward:4,
+    desc:"56kモデムまでは普通に。以降のアップグレード禁止で累計収入1000万円。",
+    goal:(s)=> s.stats.totalEarned >= 10000000, capTier:7 },
+  { id:"purist", name:"ノーミス20連",   reward:6,
+    desc:"全段階ノーミスの接続を20回連続で決める。",
+    goal:(s)=> (s.stats._noMissStreak||0) >= 20 }
+];
 
 /* プレステージ perk 定義 */
 const PRESTIGE_PERKS = {

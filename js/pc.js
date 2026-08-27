@@ -34,6 +34,7 @@ const PC = (function(){
             </div>
           </div>
           <div class="start-item" data-sm="dos">🖥 MS-DOS プロンプト</div>
+          <div class="start-item" data-sm="challenge">🏁 チャレンジ</div>
           <div class="start-item has-sub" data-sm="settings">⚙ 設定 <span class="sub-arrow">▸</span>
             <div class="start-sub">
               <div class="start-item" data-sm="sound">${Sound.isEnabled()?"🔇 サウンドOFF":"🔊 サウンドON"}</div>
@@ -73,6 +74,7 @@ const PC = (function(){
       case "dex":      UI.openDex(); break;
       case "ach":      UI.openAchievements(); break;
       case "dos":      openDos(); break;
+      case "challenge": challengePicker(); break;
       case "tut":      Tutorial.open(true); break;
       case "log":      UI.openChangelog(); break;
       case "sound":
@@ -474,6 +476,157 @@ const PC = (function(){
     };
   }
 
+  /* ================= チャレンジ ================= */
+  function challengePicker(){
+    L().classList.add("active");
+    const best = game.state.stats.challengeBest || {};
+    const inCh = game.state.challenge;
+    L().innerHTML = `
+      <div class="app-win ch-win">
+        <div class="win98-title"><span>チャレンジ</span><span class="win98-x" id="chX">✕</span></div>
+        <div class="ch-body">
+          ${inCh ? `<div class="ch-warn">現在チャレンジ中です。「${CHALLENGES.find(c=>c.id===inCh.id).name}」<br>
+            <button class="win98-btn" id="chAbort">諦めて元の状態に戻る</button></div>` :
+          `<p class="ch-lead">チャレンジを始めると、いまの進行状況は一時退避され、まっさらな状態から開始します。<br>
+            クリア/中止で元の状態に戻り、実績・図鑑・通信ポイントは持ち帰れます。</p>
+          ${CHALLENGES.map(c=>`
+            <div class="ch-item">
+              <div class="ch-name">${c.name} ${best[c.id]?`<span class="ch-best">自己ベスト ${best[c.id]}秒</span>`:""}</div>
+              <div class="ch-desc">${c.desc}</div>
+              <button class="win98-btn primary" data-ch="${c.id}">挑戦する（クリア報酬 ✨${c.reward}）</button>
+            </div>`).join("")}`}
+        </div>
+      </div>`;
+    document.getElementById("chX").onclick = ()=>{ Sound.click(); clear(); };
+    const ab = document.getElementById("chAbort");
+    if(ab) ab.onclick = ()=>{
+      if(confirm("チャレンジを中止して元の状態に戻ります。よろしいですか?")){
+        const msg = game.endChallenge(false);
+        Sound.click(); clear(); UI.desktop();
+      }
+    };
+    L().querySelectorAll("[data-ch]").forEach(b=> b.onclick = ()=>{
+      if(!confirm("いまの進行状況を退避して、チャレンジを開始します。よろしいですか?")) return;
+      if(game.startChallenge(b.dataset.ch)){
+        Sound.ok(); clear(); UI.desktop();
+        UI.banner("チャレンジ開始！ 頑張れ", "good");
+      }
+    });
+  }
+
+  /* ================= 簡易ブラウザ ================= */
+  function browser(fromResult){
+    L().classList.add("active");
+    let cur = "portal", visited = {};
+    game.state.stats.browserVisits = (game.state.stats.browserVisits||0) + 1;
+    game.save(); checkAchievements();
+    function go(id){
+      cur = id;
+      const s = WEBSITES[id];
+      if(!visited[id]){
+        visited[id] = true;
+        if(s.dial && !game.state.learnedDials[s.dial]){
+          game.state.learnedDials[s.dial] = Date.now();
+          game.state.stats.chatTips = (game.state.stats.chatTips||0) + 1;
+          setTimeout(()=> UI.banner("このページに番号『" + s.dial + "』が書いてある。メモした", "good"), 300);
+        }
+        if(s.egg) setTimeout(()=> UI.banner(s.egg, "info"), 300);
+        if(Object.keys(visited).length >= Object.keys(WEBSITES).length){
+          game.state.stats.webAllVisited = true; game.save(); checkAchievements();
+        }
+      }
+      draw();
+    }
+    function grant(f){
+      const v = game.acquireFile(Object.assign({}, f), 1);
+      Sound.coin();
+      UI.banner("『" + f.name + "』をダウンロードした (+" + formatMoney(v) + ")", "good");
+      draw();
+    }
+    function draw(){
+      const s = WEBSITES[cur];
+      L().innerHTML = `
+        <div class="app-win br-win">
+          <div class="win98-title"><span>インターネット — ${s.title}</span><span class="win98-x" id="brX">✕</span></div>
+          <div class="br-addr">アドレス: <span>${s.url}</span></div>
+          <div class="br-page">
+            <h3>${s.title}</h3>
+            <p>${s.body}</p>
+            ${s.grants ? s.grants.map((f,i)=>`<p><button class="br-link br-dl" data-dl="${i}">💾 ${f.name} をダウンロード</button></p>`).join("") : ""}
+            <div class="br-links">
+              ${s.links.map(([to,label])=>`<button class="br-link" data-to="${to}">${label}</button>`).join("")}
+            </div>
+          </div>
+          <div class="br-status">読み込み完了 ・ 訪問: ${Object.keys(visited).length} / ${Object.keys(WEBSITES).length}</div>
+        </div>`;
+      document.getElementById("brX").onclick = ()=>{ Sound.click(); clear(); if(fromResult) UI.desktop(); };
+      L().querySelectorAll("[data-to]").forEach(b=> b.onclick = ()=>{ Sound.tone(900,0.03,"square",0.04); go(b.dataset.to); });
+      L().querySelectorAll("[data-dl]").forEach(b=> b.onclick = ()=> grant(WEBSITES[cur].grants[+b.dataset.dl]));
+    }
+    go("portal");
+  }
+
+  /* ================= 2000年問題 ================= */
+  function y2k(){
+    game.state.stats.y2kSeen = true; game.save();
+    L().classList.add("active");
+    L().innerHTML = `
+      <div class="y2k-scr">
+        <div class="y2k-inner">
+          <div class="y2k-head">⚠ SYSTEM CLOCK WARNING ⚠</div>
+          <div class="y2k-body" id="y2kBody">
+            西暦2000年まで、あと…<br>
+            <span class="y2k-count" id="y2kCount">10</span><br>
+            2桁で年を管理しているシステムは誤動作する恐れがあります。<br>
+            カウントが0になる前に、システムクロックを3回再同期してください。
+          </div>
+          <div class="y2k-field" id="y2kField"></div>
+        </div>
+      </div>`;
+    let count = 10, hits = 0, done = false;
+    const field = document.getElementById("y2kField");
+    const cd = setInterval(()=>{
+      count--; document.getElementById("y2kCount").textContent = count;
+      Sound.tone(440,0.08,"square",0.1);
+      if(count <= 0 && !done) fail();
+    }, 900);
+    function target(){
+      field.innerHTML = "";
+      const b = document.createElement("button");
+      b.className = "y2k-target"; b.textContent = "🕛 再同期";
+      b.style.left = (10 + Math.random()*70) + "%";
+      b.style.top  = (10 + Math.random()*60) + "%";
+      b.onclick = ()=>{
+        hits++; Sound.ok();
+        if(hits >= 3) win(); else target();
+      };
+      field.appendChild(b);
+    }
+    function win(){
+      if(done) return; done = true; clearInterval(cd);
+      game.state.stats.y2kSurvived = true;
+      game.state.prestige.points += 2;
+      game.addMoney(50000);
+      game.save(); checkAchievements();
+      Sound.ok(); Sound.coin();
+      document.getElementById("y2kBody").innerHTML = `✔ 再同期完了。00:00:00 を無事に越えた。<br>
+        <b>通信ポイント +2 ・ +50,000円</b>`;
+      field.innerHTML = `<button class="win98-btn primary" id="y2kOk">OK</button>`;
+      document.getElementById("y2kOk").onclick = ()=>{ Sound.click(); clear(); UI.desktop(); };
+    }
+    function fail(){
+      if(done) return; done = true; clearInterval(cd);
+      game.state.stats.y2kFailed = true;
+      game.save(); checkAchievements();
+      Sound.connectFail();
+      document.getElementById("y2kBody").innerHTML = `✗ 再同期に失敗。システム時計が『19100年』を表示している…<br>
+        まあ、動いてはいる。`;
+      field.innerHTML = `<button class="win98-btn primary" id="y2kOk">OK</button>`;
+      document.getElementById("y2kOk").onclick = ()=>{ Sound.click(); clear(); UI.desktop(); };
+    }
+    target();
+  }
+
   /* ================= ゴミ箱 ================= */
   function trash(){
     L().classList.add("active");
@@ -566,5 +719,5 @@ const PC = (function(){
     });
   }
 
-  return { toggleStartMenu, openDos, bsod, armDesktop, disarm, contextMenu, displayProps, openChat, applyColorDepth, trash };
+  return { toggleStartMenu, openDos, bsod, armDesktop, disarm, contextMenu, displayProps, openChat, applyColorDepth, trash, y2k, browser, challengePicker };
 })();

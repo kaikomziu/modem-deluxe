@@ -121,8 +121,10 @@ const ACHIEVEMENTS = [].concat(
     (n)=> `ファイル図鑑 ${n}`, (n)=> `${n}種類の異なるファイルを見た。`),
 
   // --- 特殊実績 ---
-  { id:"sp_allmodem", name:"全回線制覇", desc:"5Gまで、すべての回線を手に入れた。", hidden:false,
+  { id:"sp_allmodem", name:"5G到達", desc:"5Gまで到達した。", hidden:false,
     check:(s)=> (s._maxTier||s.modemTier) >= 16 },
+  { id:"sp_endless", name:"この先は、未来", desc:"5Gの先、架空の回線をすべて手に入れた。", hidden:true,
+    check:(s)=> (s._maxTier||s.modemTier) >= 20 },
   { id:"sp_alwayson", name:"常時接続の衝撃", desc:"ADSLを導入し、ダイヤルという儀式から解放された。", hidden:false,
     check:(s)=> (s._maxTier||s.modemTier) >= 10 },
   { id:"sp_fiber", name:"回線速度を気にしない生活", desc:"光回線に到達した。", hidden:false,
@@ -277,7 +279,28 @@ const ACHIEVEMENTS = [].concat(
     (n)=> `化けたファイルのサルベージを${n}回試みた。`),
   tierAch("trash","trashEmptied",[1,20,100],
     (n)=> n===1 ? "断捨離" : `ゴミ屋敷の掃除 ${n}`,
-    (n)=> `ゴミ箱から通算${n}件を完全削除した。`, true)
+    (n)=> `ゴミ箱から通算${n}件を完全削除した。`, true),
+
+  // --- バッチ7: ブラウザ / PHANTOM / Y2K / チャレンジ / エンドレス ---
+  tierAch("brws","browserVisits",[1,10,50],
+    (n)=> n===1 ? "ネットサーフィン" : `サーファー ${n}`,
+    (n)=> `簡易ブラウザで${n}回ネットを見た。`),
+  { id:"sp_webring", name:"WEBリングの旅人", desc:"ブラウザで全ページを訪問した。", hidden:true,
+    check:(s)=> s.webAllVisited },
+  tierAch("ghost","ghostWins",[1,10,50],
+    (n)=> n===1 ? "PHANTOMに勝った" : `速取りの達人 ${n}`,
+    (n)=> `PHANTOMとの速取り勝負に${n}回勝った。`),
+  { id:"sp_ghostlose", name:"先を越された", desc:"PHANTOMにファイルを奪われた。", hidden:true,
+    check:(s)=> (s.ghostRaces||0) > (s.ghostWins||0) },
+  { id:"sp_y2k", name:"Y2Kを越えて", desc:"2000年問題を乗り切った。", hidden:true,
+    check:(s)=> s.y2kSurvived },
+  { id:"sp_y2kfail", name:"西暦19100年", desc:"2000年問題の再同期に失敗した。", hidden:true,
+    check:(s)=> s.y2kFailed },
+  tierAch("chal","challengeClears",[1,4,10],
+    (n)=> n===1 ? "チャレンジ初制覇" : `挑戦者 ${n}`,
+    (n)=> `チャレンジモードを${n}回クリアした。`),
+  { id:"sp_speedrun", name:"光速の男", desc:"タイムアタックを10分以内にクリアした。", hidden:true,
+    check:(s)=> s.challengeBest && s.challengeBest.speedrun && s.challengeBest.speedrun <= 600 }
 );
 
 // _hiddenSize / _distinctSize は疑似 stat。checkの直前に埋める。

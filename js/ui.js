@@ -83,6 +83,10 @@ const UI = (function(){
   }
   function desktop(){
     showScreen("desktop");
+    if(game.state.challenge){
+      const r = game.checkChallenge();
+      if(r && r.done){ banner("🏁 " + r.ch.name + " クリア！ " + r.secs + "秒　通信ポイント +" + r.ch.reward, "good"); }
+    }
     const { got, total } = achievementCounts();
     const m = game.modem();
     const scr = document.getElementById("desktopScreen");
@@ -102,6 +106,12 @@ const UI = (function(){
           ${deskIcon("log","📜","更新履歴")}
           ${deskIcon("trash", Object.keys(game.state.trash||{}).length ? "🗑" : "🗑", Object.keys(game.state.trash||{}).length ? "ゴミ箱 ("+Object.keys(game.state.trash).length+")" : "ゴミ箱")}
         </div>
+        ${game.state.challenge ? `<div class="ch-hud win98"><div class="win98-title"><span>🏁 チャレンジ中</span></div>
+          <div class="win98-body">
+            <div><b>${CHALLENGES.find(c=>c.id===game.state.challenge.id).name}</b></div>
+            <div class="ch-hud-time" id="chHudTime">0:00</div>
+            <button class="win98-btn" id="chHudAbort">諦める</button>
+          </div></div>` : ""}
         <div class="desk-panel win98">
           <div class="win98-title"><span>ダイヤルアップ ネットワーク</span></div>
           <div class="win98-body">
@@ -157,6 +167,10 @@ const UI = (function(){
       game.save();
       e.target.textContent = game.state.radioOffed ? "📻̸" : "📻";
     };
+    const cha = scr.querySelector("#chHudAbort");
+    if(cha) cha.onclick = ()=>{
+      if(confirm("チャレンジを中止して元の状態に戻ります。よろしいですか?")){ game.endChallenge(false); Sound.click(); desktop(); }
+    };
     const upc = scr.querySelector("#deskUpCollect");
     if(upc) upc.onclick = ()=>{
       const amt = game.collectUpload();
@@ -184,6 +198,11 @@ const UI = (function(){
       hf.style.background = h >= game.heatCritical() ? "#e0483a" : h >= game.heatThreshold() ? "#e0a53a" : "#3ac06a";
       const ua = document.getElementById("deskUpAmt");
       if(ua) ua.textContent = formatMoney(game.uploadPending());
+      const ct = document.getElementById("chHudTime");
+      if(ct && game.state.challenge){
+        const s = Math.floor((Date.now() - game.state.challenge.startedAt)/1000);
+        ct.textContent = Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+      }
     };
     upd();
     deskLoopTimer = setInterval(upd, 1000);
@@ -439,6 +458,16 @@ const UI = (function(){
     const corrupted = completion < 0.999;
     let resolved = false, extraHtml = "";
     const chatOffer = ok && kind !== "virus" && game.state.stats.connects >= 3 && Math.random() < 0.25;
+    const browserOffer = ok && kind !== "virus" && game.state.stats.connects >= 2 && Math.random() < 0.35;
+    if(data.phantomWon){
+      const bonus = Math.round(fileValue(file, completion, game.state.run) * 0.6);
+      game.addMoney(bonus);
+      game.state.stats.streak++;
+      extraHtml = `<div class="res-ok">⚡ PHANTOM に競り勝った！ 勝利ボーナス +${formatMoney(bonus)}</div>`;
+    }
+    if(data.stolen){
+      extraHtml = `<div class="res-warn">PHANTOM にファイルを奪われた。手元には断片だけ…</div>`;
+    }
 
     function paint(){
       const nextModem = game.nextModem();
@@ -464,6 +493,7 @@ const UI = (function(){
             ? `<div class="res-hint">💡 <b>${nextModem.name}</b> が買える！</div>` : ""}
           <div class="res-actions" ${resolved?"":"hidden"}>
             ${chatOffer ? `<button class="win98-btn" id="resChat">💬 チャットに参加する</button>` : ""}
+            ${browserOffer ? `<button class="win98-btn" id="resBrowser">🌐 ブラウザでネットを見る</button>` : ""}
             <button class="win98-btn primary" id="resAgain">もう一度接続 ▶</button>
             <button class="win98-btn" id="resUp">アップグレード</button>
             <button class="win98-btn" id="resDesk">デスクトップ</button>
@@ -476,6 +506,12 @@ const UI = (function(){
         scr.querySelector("#resDesk").onclick  = ()=>{ Sound.click(); desktop(); };
         const rc = scr.querySelector("#resChat");
         if(rc) rc.onclick = ()=>{ Sound.click(); PC.openChat(true); };
+        const rb = scr.querySelector("#resBrowser");
+        if(rb) rb.onclick = ()=>{ Sound.click(); PC.browser(true); };
+        // 2000年問題 (一度だけ)
+        if(!game.state.stats.y2kSeen && game.state.stats.connects >= 20 && Math.random() < 0.04){
+          setTimeout(()=> PC.y2k(), 600);
+        }
       }
       wireChoices();
     }
