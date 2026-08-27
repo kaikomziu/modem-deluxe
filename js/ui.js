@@ -100,6 +100,7 @@ const UI = (function(){
           ${deskIcon("dex","📁","ファイル図鑑")}
           ${deskIcon("help","❓","遊びかた")}
           ${deskIcon("log","📜","更新履歴")}
+          ${deskIcon("trash", Object.keys(game.state.trash||{}).length ? "🗑" : "🗑", Object.keys(game.state.trash||{}).length ? "ゴミ箱 ("+Object.keys(game.state.trash).length+")" : "ゴミ箱")}
         </div>
         <div class="desk-panel win98">
           <div class="win98-title"><span>ダイヤルアップ ネットワーク</span></div>
@@ -137,6 +138,8 @@ const UI = (function(){
     scr.querySelector('[data-icon="dex"]').onclick = ()=>{ Sound.click(); openDex(); };
     scr.querySelector('[data-icon="help"]').onclick = ()=>{ Sound.click(); Tutorial.open(true); };
     scr.querySelector('[data-icon="log"]').onclick = ()=>{ Sound.click(); openChangelog(); };
+    scr.querySelector('[data-icon="trash"]').onclick = ()=>{ Sound.click(); PC.trash(); };
+    setupIconDrag(scr);
     scr.querySelector("#tbSound").onclick = (e)=>{
       const on = !Sound.isEnabled();
       Sound.setEnabled(on);
@@ -186,7 +189,41 @@ const UI = (function(){
     deskLoopTimer = setInterval(upd, 1000);
   }
   function deskIcon(key,glyph,label){
-    return `<button class="desk-icon" data-icon="${key}"><span class="di-glyph">${glyph}</span><span class="di-label">${label}</span></button>`;
+    const p = (game.state.iconPos || {})[key];
+    const style = p ? ` style="position:absolute;left:${p.x}px;top:${p.y}px"` : "";
+    return `<button class="desk-icon" data-icon="${key}"${style}><span class="di-glyph">${glyph}</span><span class="di-label">${label}</span></button>`;
+  }
+  function setupIconDrag(scr){
+    scr.querySelectorAll(".desk-icon").forEach(ic=>{
+      let sx, sy, ox, oy, moved = false, dragging = false;
+      ic.addEventListener("pointerdown", e=>{
+        dragging = true; moved = false;
+        const r = ic.getBoundingClientRect();
+        const pr = scr.querySelector(".desk-bg").getBoundingClientRect();
+        ox = r.left - pr.left; oy = r.top - pr.top;
+        sx = e.clientX; sy = e.clientY;
+        ic.setPointerCapture(e.pointerId);
+      });
+      ic.addEventListener("pointermove", e=>{
+        if(!dragging) return;
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        if(Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+        if(moved){
+          ic.style.position = "absolute";
+          ic.style.left = Math.max(0, ox + dx) + "px";
+          ic.style.top  = Math.max(0, oy + dy) + "px";
+        }
+      });
+      ic.addEventListener("pointerup", e=>{
+        dragging = false;
+        if(moved){
+          game.state.iconPos = game.state.iconPos || {};
+          game.state.iconPos[ic.dataset.icon] = { x: parseInt(ic.style.left), y: parseInt(ic.style.top) };
+          game.save();
+        }
+      });
+      ic.addEventListener("click", e=>{ if(moved){ e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    });
   }
   let clockTimer = null;
   function startClock(){
@@ -237,7 +274,45 @@ const UI = (function(){
       b.onclick = ()=>{
         Sound.click();
         const isp = ISPS.find(x=> x.id === b.dataset.isp);
-        Handshake.start(isp);
+        if(game.state.skipRoute) Handshake.start(isp, game.state.lastRoute);
+        else routePicker(isp);
+      };
+    });
+  }
+
+  function routePicker(isp){
+    const scr = document.getElementById("ispSelectScreen");
+    scr.innerHTML = `
+      <div class="win98 isp-window">
+        <div class="win98-title"><span>接続経路の選択 — ${isp.name}</span></div>
+        <div class="win98-body">
+          <p class="isp-lead">交換局を経由してISPへ。経路で速度・安定性・通話料が変わります。</p>
+          <div class="isp-list">
+            ${ROUTES.map(rt=>`
+              <button class="isp-card" data-route="${rt.id}">
+                <div class="isp-name">${rt.icon} ${rt.name}</div>
+                <div class="isp-flavor">${rt.desc}</div>
+                <div class="isp-tags">
+                  <span>揺れ ${mod(rt.jitter, true)}</span>
+                  <span>切断 ${mod(rt.discon, true)}</span>
+                  <span>速度 ${mod(1/rt.dur)}</span>
+                  <span>通話料 ${mod(rt.bill, true)}</span>
+                </div>
+              </button>`).join("")}
+          </div>
+          <label class="route-skip"><input type="checkbox" id="routeSkip"> 次回から確認しない（標準を使う）</label>
+          <button class="win98-btn" id="routeBack">← プロバイダ選択に戻る</button>
+        </div>
+      </div>`;
+    scr.querySelector("#routeBack").onclick = ()=>{ Sound.click(); ispSelect(); };
+    scr.querySelectorAll("[data-route]").forEach(b=>{
+      b.onclick = ()=>{
+        Sound.click();
+        const rid = b.dataset.route;
+        game.state.lastRoute = rid;
+        if(scr.querySelector("#routeSkip").checked) game.state.skipRoute = true;
+        game.save();
+        Handshake.start(isp, rid);
       };
     });
   }
@@ -278,6 +353,7 @@ const UI = (function(){
       <span class="hs-isp">${r.isp.name}</span>
       <span class="hs-modem">${r.modem.name}</span>
       <span class="hs-weather">${r.weather.icon} ${r.weather.name}</span>
+      ${r.route && r.route.id !== "standard" ? `<span class="hs-route">${r.route.icon}</span>` : ""}
       ${r.infected ? `<span class="hs-infected">😈 感染中</span>` : ""}
       <span class="hs-conn" id="hsConn"></span>
       <button class="hs-abort" id="hsAbort">中止</button>`;
@@ -467,6 +543,63 @@ const UI = (function(){
       if(b) b.closest(".res-choices").innerHTML = `<div class="res-ok">✔ 使用した。</div>`;
     }
 
+    function startSalvage(f, comp, cb){
+      const N = 10;
+      const target = Array.from({length:N}, ()=> Math.random() < 0.5 ? 1 : 0);
+      const bits = Array.from({length:N}, ()=> Math.random() < 0.5 ? 1 : 0);
+      let scans = 2, phase = "play", t0 = 0, tmr = null;
+      function draw(reveal){
+        const left = phase === "play" ? Math.max(0, 20 - Math.floor((Date.now()-t0)/1000)) : 0;
+        extraHtml = `
+          <div class="salv">
+            <div class="salv-t">壊れたビット列を、正しい並びに直せ。「解析」で誤りを一瞬表示（残り${scans}）。制限 ${left}秒</div>
+            <div class="salv-bits">
+              ${bits.map((b,i)=>`<button class="salv-bit ${reveal && b!==target[i] ? 'wrong':''}" data-b="${i}">${b}</button>`).join("")}
+            </div>
+            <div class="res-choices">
+              <button class="win98-btn" id="salvScan" ${scans<=0?'disabled':''}>解析</button>
+              <button class="win98-btn primary" id="salvFix">修復を確定</button>
+            </div>
+          </div>`;
+        paint();
+        scr.querySelectorAll("[data-b]").forEach(el=> el.onclick = ()=>{
+          if(phase!=="play") return;
+          const i = +el.dataset.b; bits[i] = bits[i] ? 0 : 1;
+          Sound.tone(600,0.03,"square",0.05); draw(false);
+        });
+        const sc = scr.querySelector("#salvScan");
+        if(sc) sc.onclick = ()=>{
+          if(scans<=0) return;
+          scans--; Sound.tone(1400,0.1,"sine",0.1);
+          draw(true);
+          setTimeout(()=>{ if(phase==="play") draw(false); }, 1400);
+        };
+        scr.querySelector("#salvFix").onclick = ()=> finish();
+      }
+      function finish(){
+        if(phase!=="play") return;
+        phase = "done"; clearInterval(tmr);
+        const correct = bits.filter((b,i)=> b === target[i]).length;
+        const ratio = correct / N;
+        game.state.stats.salvaged++;
+        game.save(); checkAchievements();
+        if(ratio >= 0.8){
+          Sound.ok();
+          cb(Math.min(1, comp + 0.15 + (ratio - 0.8) * 1.5));
+        } else {
+          Sound.error();
+          cb(comp);
+        }
+      }
+      t0 = Date.now();
+      tmr = setInterval(()=>{
+        if(phase!=="play") return;
+        if(Date.now() - t0 > 20000) finish();
+        else draw(false);
+      }, 1000);
+      draw(false);
+    }
+
     function startHaggle(f, comp, V, cb){
       let round = 0, brokerOffer = Math.round(V * (0.5 + Math.random()*0.15));
       function draw(){
@@ -555,6 +688,30 @@ const UI = (function(){
           </div>`;
         paint(); return;
       }
+    }
+
+    // 破損ファイル: サルベージできる
+    if(corrupted && kind === "data" || corrupted && ["image","midi","audio","soft"].includes(kind)){
+      let salvComp = completion;
+      extraHtml = `<div class="res-warn">データが化けている（${Math.round(completion*100)}%）。</div>
+        <div class="res-choices">
+          <button class="win98-btn" data-choice="salvage">🔧 サルベージを試みる</button>
+          <button class="win98-btn primary" data-choice="sellcorrupt">このまま売る</button>
+        </div>`;
+      const _oc = onChoice;
+      onChoice = function(c){
+        if(c === "sellcorrupt"){ Sound.click(); const v = game.acquireFile(file, salvComp); done(v); return; }
+        if(c === "salvage"){ Sound.click(); startSalvage(file, salvComp, (nc)=>{
+          salvComp = nc;
+          const v = game.acquireFile(file, salvComp);
+          extraHtml = nc > completion + 0.01
+            ? `<div class="res-ok">🔧 サルベージ成功！ ${Math.round(completion*100)}% → ${Math.round(nc*100)}%</div>`
+            : `<div class="res-warn">サルベージ失敗。データはそのまま。</div>`;
+          done(v);
+        }); return; }
+        _oc(c);
+      };
+      paint(); return;
     }
 
     // レア以上: 闇市で交渉できる

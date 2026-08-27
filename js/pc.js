@@ -39,6 +39,7 @@ const PC = (function(){
               <div class="start-item" data-sm="sound">${Sound.isEnabled()?"🔇 サウンドOFF":"🔊 サウンドON"}</div>
               <div class="start-item" data-sm="crt">📺 CRT効果 切替</div>
               <div class="start-item" data-sm="props">🖥 画面のプロパティ</div>
+              <div class="start-item" data-sm="route">🛣️ 経路選択: ${game.state.skipRoute ? "自動(標準)" : "毎回確認"}</div>
               <div class="start-item" data-sm="wipe">🗑 セーブデータを消去</div>
             </div>
           </div>
@@ -83,6 +84,7 @@ const PC = (function(){
         if(document.getElementById("crt").classList.contains("crt-off")){ game.state.stats.crtOffed = true; game.save(); checkAchievements(); }
         break;
       case "props":    displayProps(); break;
+      case "route":    game.state.skipRoute = !game.state.skipRoute; game.save(); break;
       case "mine":     Apps.minesweeper(); break;
       case "memory":   Apps.memory(); break;
       case "paint":    Apps.paint(); break;
@@ -472,6 +474,38 @@ const PC = (function(){
     };
   }
 
+  /* ================= ゴミ箱 ================= */
+  function trash(){
+    L().classList.add("active");
+    const t = game.state.trash || {};
+    const names = Object.keys(t);
+    L().innerHTML = `
+      <div class="app-win trash-win">
+        <div class="win98-title"><span>ゴミ箱</span><span class="win98-x" id="trX">✕</span></div>
+        <div class="trash-body">
+          ${names.length === 0 ? `<div class="trash-empty">ゴミ箱は空です。</div>` :
+            names.map(n=>`<div class="trash-row">
+              <span class="trash-name">🗎 ${n}</span>
+              <button class="win98-btn" data-restore="${n}">元に戻す</button>
+            </div>`).join("")}
+          ${names.length ? `<button class="win98-btn primary trash-empty-btn" id="trEmpty">ゴミ箱を空にする（${names.length}件を完全削除）</button>` : ""}
+        </div>
+      </div>`;
+    document.getElementById("trX").onclick = ()=>{ Sound.click(); clear(); };
+    L().querySelectorAll("[data-restore]").forEach(b=> b.onclick = ()=>{
+      game.restoreFile(b.dataset.restore); Sound.click(); trash();
+    });
+    const te = document.getElementById("trEmpty");
+    if(te) te.onclick = ()=>{
+      if(confirm("ゴミ箱を空にすると、中のファイルは図鑑からも完全に消えます。よろしいですか?")){
+        const n = game.emptyTrash();
+        Sound.tone(200,0.3,"sawtooth",0.12);
+        UI.banner(n + "件を完全に削除した", "info");
+        clear();
+      }
+    };
+  }
+
   /* ================= チャット (IRC風) ================= */
   function openChat(fromResult){
     L().classList.add("active");
@@ -532,5 +566,5 @@ const PC = (function(){
     });
   }
 
-  return { toggleStartMenu, openDos, bsod, armDesktop, disarm, contextMenu, displayProps, openChat, applyColorDepth };
+  return { toggleStartMenu, openDos, bsod, armDesktop, disarm, contextMenu, displayProps, openChat, applyColorDepth, trash };
 })();

@@ -25,8 +25,9 @@ const Download = (function(){
     const has = (m)=> ispHasMod(r.isp, m) && !((m === "l_ad" || m === "l_spy") && adBlock);
     const dlSpeedMod = (has("l_fast") ? 0.72 : 1) * (has("l_slow") ? 1.42 : 1);
     // 見て楽しめる長さに圧縮 (8〜40秒)
+    const routeDur = r.route ? r.route.dur : 1;
     const duration = Math.min(40, Math.max(7,
-      (5 + Math.log10(file.kb + 10) * 5 / (0.6 + r.negoQuality)) * dlSpeedMod));
+      (5 + Math.log10(file.kb + 10) * 5 / (0.6 + r.negoQuality)) * dlSpeedMod * routeDur));
 
     // 長時間接続リスクのしきい値 (回線が新しいほど余裕)
     const eraIdx = eraIndex(r.modem.era);
@@ -252,7 +253,7 @@ const Download = (function(){
     if(!st.weatherRolled && st.progress > 0.4){
       st.weatherRolled = true;
       const surge = game.auxEffect("surge");
-      if(Math.random() < r.weather.discon){
+      if(Math.random() < r.weather.discon * (r.route ? r.route.discon : 1)){
         if(Math.random() < surge){
           game.state.stats.weatherSaved++;
           UI.banner("⚡ 落雷 — サージプロテクタが吸収した", "good");

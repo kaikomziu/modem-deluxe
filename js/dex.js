@@ -50,6 +50,7 @@ const Dex = (function(){
         <div class="dex-meta"><span style="color:${rar.color}">${rar.label}</span> ・ ${formatSize(file.kb)}</div>
       </div>
       ${got ? `<button class="dex-up ${up?'on':''}" data-up="${file.name}">${up?'配布中':'配布'}</button>` : ""}
+      ${got ? `<button class="dex-trash" data-trash="${file.name}" title="ゴミ箱に移動">🗑</button>` : ""}
       <div class="dex-count">${got ? '×'+count : '未取得'}</div>
     </div>`;
   }
@@ -151,6 +152,13 @@ const Dex = (function(){
       b.onclick = ()=>{
         if(game.toggleUpload(b.dataset.up)){ Sound.click(); render(); }
         else { Sound.error(); UI.banner("配布枠がいっぱいです（回線をアップグレードすると増えます）", "info"); }
+      };
+    });
+    body.querySelectorAll("[data-trash]").forEach(b=>{
+      b.onclick = ()=>{
+        if(confirm(b.dataset.trash + " をゴミ箱に移動します。図鑑の収集率が下がります。よろしいですか?")){
+          game.trashFile(b.dataset.trash); Sound.click(); render();
+        }
       };
     });
   }

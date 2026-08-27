@@ -50,9 +50,9 @@ const Handshake = (function(){
   }
   function randDigits(n){ let s=""; for(let i=0;i<n;i++) s+=Math.floor(Math.random()*10); return s; }
 
-  function start(isp){
+  function start(isp, routeId){
     active = true;
-    game.startRun(isp);
+    game.startRun(isp, routeId);
     stageEl      = document.getElementById("hsStage");
     timebarEl    = document.getElementById("hsTimebar");
     stageTitleEl = document.getElementById("hsStageTitle");
@@ -346,7 +346,8 @@ const Handshake = (function(){
     const tol = Math.max(0.032, (always ? 0.11 : isDigital ? 0.09 : 0.075) - tier*0.0018 + tolMod);
     const jitterFactor = hasM("c_assist") ? 0.15 : hasM("c_drift") ? 1.85 : 1;
     const heatMul = game.heat() >= game.heatThreshold() ? 1.3 : 1;   // モデム高温で揺れ増
-    const jitterAmt = (always ? 0.4 : 1) * r.weather.jitter * (1 - game.auxEffect("noisefilter")) * jitterFactor * heatMul * 0.0016;
+    const routeMul = r.route ? r.route.jitter : 1;
+    const jitterAmt = (always ? 0.4 : 1) * r.weather.jitter * (1 - game.auxEffect("noisefilter")) * jitterFactor * heatMul * routeMul * 0.0016;
     const autotrack = game.auxEffect("autotrack");
     const fillRate = 0.0016 * (hasM("c_fast") ? 1.7 : 1);
     let jitterPhase = Math.random()*10, signal = 0;

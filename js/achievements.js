@@ -265,7 +265,19 @@ const ACHIEVEMENTS = [].concat(
     (n)=> n===1 ? "はじめての作品" : `ドット絵師 ${n}`,
     (n)=> `ペイントで絵を${n}枚保存した。`),
   { id:"sp_artwall", name:"自作の壁紙", desc:"自分で描いた絵を壁紙にした。", hidden:false,
-    check:(s)=> game.state.wallpaper && /^my_art_/.test(game.state.wallpaper) }
+    check:(s)=> game.state.wallpaper && /^my_art_/.test(game.state.wallpaper) },
+
+  // --- バッチ6: 経路 / サルベージ / ゴミ箱 ---
+  { id:"sp_direct", name:"近道は危ない", desc:"近道ルートで接続した。", hidden:true,
+    check:(s)=> s.routeDirect },
+  { id:"sp_detour", name:"急がば回れ", desc:"迂回ルートで接続した。", hidden:true,
+    check:(s)=> s.routeDetour },
+  tierAch("salv","salvaged",[1,10,50],
+    (n)=> n===1 ? "データ復旧" : `サルベージ屋 ${n}`,
+    (n)=> `化けたファイルのサルベージを${n}回試みた。`),
+  tierAch("trash","trashEmptied",[1,20,100],
+    (n)=> n===1 ? "断捨離" : `ゴミ屋敷の掃除 ${n}`,
+    (n)=> `ゴミ箱から通算${n}件を完全削除した。`, true)
 );
 
 // _hiddenSize / _distinctSize は疑似 stat。checkの直前に埋める。

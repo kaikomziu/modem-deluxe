@@ -135,12 +135,14 @@ body{
 /* ---------- desktop ---------- */
 #desktopScreen{ background:#1a7d7d; }
 .desk-bg{
+  position:relative;
   min-height:100%;
   background:
     linear-gradient(135deg,#2a9d9d,#0d6b6b);
   padding:22px 22px 46px;
   display:flex; gap:26px; flex-wrap:wrap; align-content:flex-start;
 }
+.desk-icon{ touch-action:none; }
 .desk-icons{ display:flex; flex-direction:column; gap:20px; }
 .desk-icon{
   width:88px; background:none; border:none; cursor:pointer; color:#fff;
@@ -615,6 +617,21 @@ body{
 .chat-input{ flex:1; font-family:inherit; font-size:12px; }
 .dial-memo{ margin-top:8px; font-size:11px; color:#9fdfb2; }
 .dial-memo-chip{ font-family:inherit; font-size:11px; cursor:pointer; background:#3a2c0d; color:var(--amber); border:1px solid #7a5c20; padding:2px 6px; }
+.route-skip{ display:block; font-size:11px; margin:8px 0; color:#333; }
+.hs-route{ color:var(--amber); }
+.salv{ background:#1a1a1a; color:#dcd; border:1px solid #555; padding:10px; margin:6px 0; }
+.salv-t{ font-size:11px; margin-bottom:8px; }
+.salv-bits{ display:flex; gap:4px; justify-content:center; margin-bottom:8px; }
+.salv-bit{ width:26px; height:30px; font-family:"MS Gothic",monospace; font-size:15px; font-weight:bold;
+  background:#0d2c17; color:var(--crt-green); border:1px solid #2a6c40; cursor:pointer; }
+.salv-bit.wrong{ background:#4a0d0d; color:#ff8a8a; border-color:#8a2020; }
+.trash-win{ width:min(360px,92vw); }
+.trash-body{ padding:10px; }
+.trash-empty{ font-size:12px; color:#555; text-align:center; padding:10px; }
+.trash-row{ display:flex; justify-content:space-between; align-items:center; font-size:11px; padding:4px 0; border-bottom:1px dotted #b7b3a4; }
+.trash-name{ word-break:break-all; flex:1; }
+.trash-empty-btn{ width:100%; margin-top:8px; }
+.dex-trash{ font-family:inherit; font-size:10px; cursor:pointer; background:#dcdcd4; border:1px solid #999; padding:2px 4px; flex-shrink:0; }
 
 .app-win{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-shadow) var(--win-shadow) var(--win-hi);

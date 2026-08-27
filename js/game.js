@@ -21,7 +21,7 @@ const game = {
       parts: 0,
       learnedDials: {}, burnIn: 0,
       screenColors: "full", bgColor: "teal",
-      paintArt: {}, iconPos: {}, trash: {},
+      paintArt: {}, iconPos: {}, trash: {}, skipRoute: false, lastRoute: "standard",
       achUnlocked: {},
       // ラン中の一時データ
       run: null,
@@ -133,7 +133,8 @@ const game = {
     const r = this.state.run;
     if(!r || r.billFree) return 0;
     const sec = (Date.now() - r.billStart) / 1000;
-    return Math.round(sec * this.phoneRatePerSec() * (1 - this.perkEffect("billcut")));
+    const routeMul = r.route ? r.route.bill : 1;
+    return Math.round(sec * this.phoneRatePerSec() * (1 - this.perkEffect("billcut")) * routeMul);
   },
   settleBill(){
     const r = this.state.run;
@@ -190,9 +191,10 @@ const game = {
   },
 
   /* ---- ラン開始 ---- */
-  startRun(isp){
+  startRun(isp, routeId){
     const modem = this.modem();
     const weather = pickWeather();
+    const route = ROUTES.find(x=> x.id === routeId) || ROUTES.find(x=> x.id === "standard");
     if(this.state.money < 1) this.state.stats.wentBrokeAndDialed = true;
     // 従量課金プロバイダ: 接続ごとに少額課金
     if(ispHasMod(isp, "e_fee")){
@@ -202,7 +204,7 @@ const game = {
       this.state.run_fee = fee;
     } else this.state.run_fee = 0;
     this.state.run = {
-      isp, modem, weather,
+      isp, modem, weather, route,
       startedAt: Date.now(),
       dialErrors:0, carrierMisses:0, negoQuality:0, negoOneShot:false,
       perfectSoFar:true,
@@ -238,6 +240,8 @@ const game = {
     if(this.state.modemTier < this.state.maxTier) s.retroConnects++;
     if(r.isp) s.ispsUsed[r.isp.id] = (s.ispsUsed[r.isp.id] || 0) + 1;
     if(isTelehoTime()) s.telehoConnects++;
+    if(r.route && r.route.id === "direct") s.routeDirect = true;
+    if(r.route && r.route.id === "detour") s.routeDetour = true;
     this.addHeat(7);
 
     if(r.perfectSoFar && r.dialErrors === 0 && r.carrierMisses === 0){
@@ -397,6 +401,32 @@ const game = {
     return amt;
   },
 
+  /* ---- ゴミ箱 ---- */
+  trashFile(name){
+    const c = this.state.stats.distinctFiles[name];
+    if(!c) return false;
+    this.state.trash[name] = c;
+    delete this.state.stats.distinctFiles[name];
+    if(this.state.uploads[name]) delete this.state.uploads[name];
+    this.save();
+    return true;
+  },
+  restoreFile(name){
+    if(!this.state.trash[name]) return false;
+    this.state.stats.distinctFiles[name] = this.state.trash[name];
+    delete this.state.trash[name];
+    this.save();
+    return true;
+  },
+  emptyTrash(){
+    const n = Object.keys(this.state.trash).length;
+    this.state.trash = {};
+    this.state.stats.trashEmptied += n;
+    this.save();
+    checkAchievements();
+    return n;
+  },
+
   tickPlaytime(sec){
     this.state.stats.playSeconds += sec;
   }
@@ -495,6 +525,7 @@ function pickFile(isp){
   let luck = isp ? isp.luck : 1;
   if(ispHasMod(isp, "e_lucky")) luck *= 1.35;
   if(game.perkEffect("luckboost")) luck *= (1 + game.perkEffect("luckboost"));
+  if(game.state.run && game.state.run.route) luck *= game.state.run.route.luck;
   let roll = Math.random() * 100 / luck;
   if(ispHasMod(isp, "e_under")) roll *= 0.55;   // アングラ: レア以上が出やすい
   let rk;
