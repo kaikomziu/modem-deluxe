@@ -1,7 +1,14 @@
 // MODEM DELUXE - 更新履歴
-const APP_VERSION = "1.11.0";
+const APP_VERSION = "1.11.1";
 
 const CHANGELOG = [
+  {
+    version: "1.11.1",
+    date: "2026-08-28",
+    notes: [
+      "修正: 結果画面の『解凍する』などのボタンを連打すると何度も報酬がもらえてしまう不具合を修正(解凍/売却/闇市の二重取得ガード)"
+    ]
+  },
   {
     version: "1.11.0",
     date: "2026-08-28",

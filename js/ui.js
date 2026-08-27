@@ -456,7 +456,7 @@ const UI = (function(){
     const rar = RARITY[file.rarity];
     const scr = document.getElementById("resultScreen");
     const corrupted = completion < 0.999;
-    let resolved = false, extraHtml = "";
+    let resolved = false, extraHtml = "", unpacked = false, unpackEarnLine = "", doneOnce = false;
     const chatOffer = ok && kind !== "virus" && game.state.stats.connects >= 3 && Math.random() < 0.25;
     const browserOffer = ok && kind !== "virus" && game.state.stats.connects >= 2 && Math.random() < 0.35;
     if(data.phantomWon){
@@ -517,7 +517,11 @@ const UI = (function(){
     }
 
     function done(v){
+      if(resolved && doneOnce) return;
+      doneOnce = true;
       resolved = true;
+      // 残っている選択ボタンを除去（連打での二重取得を防ぐ）
+      extraHtml = extraHtml.replace(/<div class="res-choices">[\s\S]*?<\/div>\s*(?=<|$)/g, "");
       extraHtml = `<div class="res-earn">売却額 <b>+${formatMoney(v)}</b></div>` + extraHtml;
       Sound.coin();
       paint();
@@ -554,11 +558,14 @@ const UI = (function(){
         extraHtml = `<div class="res-ok">チェーンメールを無視した。図鑑には記録された。</div>`;
         done(v);
       } else if(c === "unpack"){
+        if(unpacked) return;          // 連打ガード
+        unpacked = true;
         const bonus = game.unpackArchive(file);
         const list = bonus.map(x=> `<div class="res-unpack-row">📄 ${x.file.name} <b>+${formatMoney(x.value)}</b></div>`).join("");
         const tot = bonus.reduce((a,x)=> a + x.value, 0);
-        extraHtml = `<div class="res-ok">🗜 解凍完了 — ${bonus.length}個のファイル</div>${list}
-          <div class="res-earn">中身の合計 <b>+${formatMoney(tot)}</b></div>` + extraHtml;
+        extraHtml = `${unpackEarnLine}
+          <div class="res-ok">🗜 解凍完了 — ${bonus.length}個のファイル</div>${list}
+          <div class="res-earn">中身の合計 <b>+${formatMoney(tot)}</b></div>`;
         resolved = true; Sound.coin(); paint();
       } else if(c === "wallpaper"){
         game.state.wallpaper = file.name; game.state.stats.wallpapersSet++; game.save();
@@ -637,7 +644,8 @@ const UI = (function(){
     }
 
     function startHaggle(f, comp, V, cb){
-      let round = 0, brokerOffer = Math.round(V * (0.5 + Math.random()*0.15));
+      let round = 0, brokerOffer = Math.round(V * (0.5 + Math.random()*0.15)), hDone = false;
+      const settle = (v)=>{ if(hDone) return; hDone = true; cb(v); };
       function draw(){
         extraHtml = `
           <div class="haggle">
@@ -657,13 +665,15 @@ const UI = (function(){
         const sl = scr.querySelector("#haggleSlider"), vv = scr.querySelector("#haggleVal");
         sl.oninput = ()=>{ vv.textContent = formatMoney(+sl.value); };
         scr.querySelector("#haggleAccept").onclick = ()=>{
+          if(hDone) return;
           Sound.coin();
           const v = game.acquireFile(f, comp);
           const bonus = brokerOffer - v;
           game.addMoney(bonus > 0 ? bonus : 0);
-          cb(Math.max(v, brokerOffer));
+          settle(Math.max(v, brokerOffer));
         };
         scr.querySelector("#haggleOffer").onclick = ()=>{
+          if(hDone) return;
           const ask = +sl.value;
           round++;
           const pAccept = Math.max(0.04, Math.min(0.95, 1.35 - ask / V));
@@ -673,7 +683,7 @@ const UI = (function(){
             const v = game.acquireFile(f, comp);
             game.addMoney(Math.max(0, ask - v));
             checkAchievements();
-            cb(Math.max(v, ask));
+            settle(Math.max(v, ask));
           } else if(round >= 3 || ask > V * 1.55){
             Sound.error();
             game.state.stats.haggleBlown++;
@@ -681,6 +691,7 @@ const UI = (function(){
             const penalty = Math.round(v * 0.55);
             game.addMoney(-penalty);
             checkAchievements();
+            hDone = true;
             extraHtml = `<div class="res-warn">交渉決裂。ブローカーは去り、足元を見られて安く買い叩かれた…</div>`;
             done(Math.max(1, v - penalty));
           } else {
@@ -762,7 +773,7 @@ const UI = (function(){
       const _onChoice = onChoice;
       onChoice = function(c){
         if(c === "sellnow"){ Sound.click(); const v = game.acquireFile(file, completion); done(v); return; }
-        if(c === "haggle"){ Sound.click(); startHaggle(file, completion, est, (v)=> done(v)); return; }
+        if(c === "haggle"){ Sound.click(); startHaggle(file, completion, est, (v)=>{ extraHtml = `<div class="res-ok">闇市で取引成立。</div>`; done(v); }); return; }
         _onChoice(c);
       };
       paint(); return;
@@ -770,11 +781,13 @@ const UI = (function(){
 
     // 通常ファイル: 即取得
     const value = game.acquireFile(file, completion);
+    const earnLine = `<div class="res-earn">売却額 <b>+${formatMoney(value)}</b></div>`;
     resolved = true;
-    extraHtml = `<div class="res-earn">売却額 <b>+${formatMoney(value)}</b></div>`;
+    extraHtml = earnLine;
     if(kind === "archive"){
       resolved = false;
       extraHtml += `<div class="res-choices"><button class="win98-btn primary" data-choice="unpack">🗜 解凍する</button></div>`;
+      unpackEarnLine = earnLine;
     } else if(kind === "image"){
       extraHtml += `<div class="res-choices"><button class="win98-btn" data-choice="wallpaper">🖼 壁紙に設定</button></div>`;
     } else if(kind === "midi"){
