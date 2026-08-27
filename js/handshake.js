@@ -36,7 +36,7 @@ const Handshake = (function(){
     keyRms.forEach(fn=>{ try{ fn(); }catch(e){} }); keyRms = [];
     Sound.stopCarrier(); Sound.stopHandshake(); Sound.stopDialTone();
   }
-  function abort(){ active = false; clearAll(); }
+  function abort(){ active = false; clearAll(); if(game.state.run) game.settleBill(); }
 
   /* ---- プロバイダ MOD ---- */
   function hasM(m){ return ispHasMod(game.state.run.isp, m); }
@@ -71,12 +71,14 @@ const Handshake = (function(){
   function runTimer(seconds, onExpire){
     const total = seconds + game.auxEffect("timeext") + (hasM("t_plus") ? 3 : 0);
     const t0 = performance.now();
-    let fired = false;
+    let fired = false, hudTick = 0;
     startLoop((dt, now)=>{
       const left = Math.max(0, total - (now - t0)/1000);
       const pct = left / total * 100;
       timebarEl.style.width = pct + "%";
       timebarEl.style.background = pct < 25 ? "#e0483a" : pct < 55 ? "#e0a53a" : "#3ac06a";
+      hudTick += dt;
+      if(hudTick > 250){ hudTick = 0; UI.updateConnHud(); }
       if(left <= 0 && !fired){ fired = true; onExpire(); }
     });
   }
@@ -336,7 +338,8 @@ const Handshake = (function(){
     const tolMod = (hasM("c_wide") ? 0.035 : 0) - (hasM("c_narrow") ? 0.03 : 0);
     const tol = Math.max(0.032, (always ? 0.11 : isDigital ? 0.09 : 0.075) - tier*0.0018 + tolMod);
     const jitterFactor = hasM("c_assist") ? 0.15 : hasM("c_drift") ? 1.85 : 1;
-    const jitterAmt = (always ? 0.4 : 1) * r.weather.jitter * (1 - game.auxEffect("noisefilter")) * jitterFactor * 0.0016;
+    const heatMul = game.heat() >= game.heatThreshold() ? 1.3 : 1;   // モデム高温で揺れ増
+    const jitterAmt = (always ? 0.4 : 1) * r.weather.jitter * (1 - game.auxEffect("noisefilter")) * jitterFactor * heatMul * 0.0016;
     const autotrack = game.auxEffect("autotrack");
     const fillRate = 0.0016 * (hasM("c_fast") ? 1.7 : 1);
     let jitterPhase = Math.random()*10, signal = 0;
@@ -494,6 +497,10 @@ const Handshake = (function(){
     let ceiling = Math.max(0.4, 0.55 + Math.random()*0.4 - Math.min(0.12, tier*0.006));
     if(hasM("n_high")) ceiling = Math.min(1.0,  ceiling + 0.13);
     if(hasM("n_low"))  ceiling = Math.max(0.32, ceiling - 0.13);
+    if(game.heat() >= game.heatThreshold()){
+      ceiling = Math.max(0.3, ceiling - 0.1);
+      stageHintEl.textContent += "  🌡 モデムが高温 — 限界が下がっている";
+    }
     if(hasM("n_tele")){
       const h = new Date().getHours();
       const night = (h >= 23 || h < 8);

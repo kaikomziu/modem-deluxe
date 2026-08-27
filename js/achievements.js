@@ -67,7 +67,7 @@ const ACHIEVEMENTS = [].concat(
   // モデム到達 (tier 1..16)
   MODEMS.slice(1).map(m=>({
     id:"modem_"+m.id, name:"入手: "+m.name, desc:m.sub, hidden:false,
-    check:(s)=> ((s.maxTier||s.modemTier) >= m.id)
+    check:(s)=> ((s._maxTier||s.modemTier) >= m.id)
   })),
 
   tierAch("storm","weatherConnects.storm",[1,5,20,60],
@@ -122,17 +122,17 @@ const ACHIEVEMENTS = [].concat(
 
   // --- 特殊実績 ---
   { id:"sp_allmodem", name:"全回線制覇", desc:"5Gまで、すべての回線を手に入れた。", hidden:false,
-    check:(s)=> (s.maxTier||s.modemTier) >= 16 },
+    check:(s)=> (s._maxTier||s.modemTier) >= 16 },
   { id:"sp_alwayson", name:"常時接続の衝撃", desc:"ADSLを導入し、ダイヤルという儀式から解放された。", hidden:false,
-    check:(s)=> (s.maxTier||s.modemTier) >= 10 },
+    check:(s)=> (s._maxTier||s.modemTier) >= 10 },
   { id:"sp_fiber", name:"回線速度を気にしない生活", desc:"光回線に到達した。", hidden:false,
-    check:(s)=> (s.maxTier||s.modemTier) >= 13 },
+    check:(s)=> (s._maxTier||s.modemTier) >= 13 },
   { id:"sp_soundoff", name:"…静寂", desc:"接続音を消した。気持ちは分かる。", hidden:true,
     check:(s)=> s.soundOffed },
   { id:"sp_crtoff", name:"平面の世界へ", desc:"CRTエフェクトを切った。", hidden:true,
     check:(s)=> s.crtOffed },
   { id:"sp_maxaux", name:"全部盛り", desc:"補助アップグレードをすべて最大まで上げた。", hidden:false,
-    check:(s)=> Object.keys(AUX_UPGRADES).every(k=> (s.aux&&s.aux[k]||0) >= AUX_UPGRADES[k].levels.length) },
+    check:(s)=> Object.keys(AUX_UPGRADES).every(k=> (s._aux[k]||0) >= AUX_UPGRADES[k].levels.length) },
   { id:"sp_pit", name:"THE PITの一員", desc:"31337 にダイヤルしてアングラBBSに触れた。", hidden:true,
     check:(s)=> s.hiddenFound && s.hiddenFound["31337"] },
   { id:"sp_1997", name:"1997年に電話した", desc:"タイムカプセルサーバーに接続した。", hidden:true,
@@ -165,7 +165,7 @@ const ACHIEVEMENTS = [].concat(
   { id:"sp_telehodai_win", name:"深夜の申し子", desc:"テレホーダイ提携プロバイダで深夜料金帯に接続した。", hidden:true,
     check:(s)=> s.telehodaiNight },
   { id:"sp_downgrade", name:"時を戻そう", desc:"最高回線を持っているのに、あえて300bpsで接続した。", hidden:true,
-    check:(s)=> s.couplerConnects > 0 && (s.maxTier||0) >= 5 && s.retroConnects > 0 },
+    check:(s)=> s.couplerConnects > 0 && (s._maxTier||0) >= 5 && s.retroConnects > 0 },
 
   // --- PC隠し要素 ---
   { id:"sp_start", name:"スタートはここから", desc:"スタートメニューを開いた。", hidden:true,
@@ -175,7 +175,28 @@ const ACHIEVEMENTS = [].concat(
   { id:"sp_bsod", name:"青い画面", desc:"ブルースクリーンを拝んだ。", hidden:true,
     check:(s)=> s.bsod },
   { id:"sp_konami", name:"↑↑↓↓←→←→BA", desc:"由緒正しいコマンドを入力した。", hidden:true,
-    check:(s)=> s.konami }
+    check:(s)=> s.konami },
+
+  // --- 通話料 / 発熱 / 深夜 / 事故 ---
+  tierAch("teleho","telehoConnects",[1,20,100,500],
+    (n)=> n===1 ? "テレホーダイの申し子" : `深夜の常連 ${n}`,
+    (n)=> `テレホーダイ時間帯(23〜8時)に${n}回接続した。`),
+  tierAch("bill","phoneBillPaid",[1000,50000,500000,5000000],
+    (n)=> `通話料 累計 ${formatMoney(n)}`,
+    (n)=> `NTTに支払った通話料の累計が${formatMoney(n)}を突破。`, true),
+  tierAch("oheat","overheatDrops",[1,10,50],
+    (n)=> n===1 ? "モデムが火を噴いた" : `熱暴走の常習犯 ${n}`,
+    (n)=> `モデムの熱暴走で${n}回切断された。冷却ファンを買いなさい。`, true),
+  tierAch("bsave","blackoutSaved",[1,10,50],
+    (n)=> `UPSが仕事をした ${n}`, (n)=> `停電を${n}回乗り切った。`),
+  tierAch("catchi","catchIgnored",[1,20,100],
+    (n)=> `無視 ${n}`, (n)=> `キャッチホンを${n}回無視した。`, true),
+  { id:"sp_catchcash", name:"かかってきた懸賞", desc:"キャッチホンに出たら懸賞当選の電話だった。", hidden:true,
+    check:(s)=> s.catchAnswered > 0 && s.catchCash },
+  tierAch("appl","applianceHits",[1,25,100],
+    (n)=> `家電に負けた ${n}`, (n)=> `ダウンロード中に家電の干渉を${n}回受けた。`, true),
+  { id:"sp_coolmax", name:"完全冷却", desc:"冷却ファンを最大まで上げた。", hidden:false,
+    check:(s)=> (s._aux.coolfan||0) >= 3 }
 );
 
 // _hiddenSize / _distinctSize は疑似 stat。checkの直前に埋める。
@@ -183,6 +204,8 @@ function achPrepStats(s){
   s._hiddenSize   = s.hiddenFound ? Object.keys(s.hiddenFound).length : 0;
   s._distinctSize = s.distinctFiles ? Object.keys(s.distinctFiles).length : 0;
   s._ispsSize     = s.ispsUsed ? Object.keys(s.ispsUsed).length : 0;
+  s._aux          = game.state.aux || {};
+  s._maxTier      = game.state.maxTier || 0;
 }
 
 /* ---------- 判定 & 通知 ---------- */

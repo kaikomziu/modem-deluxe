@@ -10,6 +10,7 @@ const UI = (function(){
       if(el) el.classList.toggle("active", s === name);
     });
     document.body.dataset.screen = name;
+    if(name !== "desktop"){ clearInterval(deskLoopTimer); clearInterval(clockTimer); }
     if(typeof PC !== "undefined"){ name === "desktop" ? PC.armDesktop() : PC.disarm(); }
   }
 
@@ -84,13 +85,17 @@ const UI = (function(){
             <div class="desk-stat"><span>接続成功 / 切断</span><b>${game.state.stats.connects} / ${game.state.stats.noCarrier}</b></div>
             <div class="desk-stat"><span>ファイル入手</span><b>${game.state.stats.filesGot}</b></div>
             <div class="desk-stat"><span>実績</span><b>${got} / ${total}</b></div>
+            <div class="desk-stat"><span>モデム温度</span><span class="heat-gauge"><span class="heat-fill" id="deskHeat"></span></span></div>
+            <div class="desk-stat"><span>時間帯</span><b>${isTelehoTime()?'🌙 テレホーダイ (通話料¥0)':'☀ 通常 (通話料あり)'}</b></div>
             <button class="win98-btn big-connect" id="deskConnect">接続する ▶</button>
           </div>
         </div>
+        <div class="desk-ticker"><div class="desk-ticker-in" id="deskTicker"></div></div>
       </div>
       <div class="taskbar">
         <button class="taskbar-start" id="tbStart">🪟 スタート</button>
         <span class="taskbar-spacer"></span>
+        <button class="tb-toggle" id="tbRadio" title="深夜ラジオ">${game.state.radioOffed?"📻̸":"📻"}</button>
         <button class="tb-toggle" id="tbSound">${Sound.isEnabled()?"🔊":"🔇"}</button>
         <button class="tb-toggle" id="tbCrt">📺</button>
         <span class="taskbar-clock" id="tbClock"></span>
@@ -116,9 +121,32 @@ const UI = (function(){
       crt.classList.toggle("crt-off");
       if(crt.classList.contains("crt-off")){ game.state.stats.crtOffed = true; game.save(); checkAchievements(); }
     };
+    scr.querySelector("#tbRadio").onclick = (e)=>{
+      game.state.radioOffed = !game.state.radioOffed;
+      game.save();
+      e.target.textContent = game.state.radioOffed ? "📻̸" : "📻";
+    };
     startClock();
+    startDeskLoop();
     updateAchBadge();
     Tutorial.maybeShowIntro();
+  }
+  let deskLoopTimer = null;
+  function startDeskLoop(){
+    clearInterval(deskLoopTimer);
+    const news = NEWS.filter(n=> game.state.stats.connects >= n.at);
+    const tk = document.getElementById("deskTicker");
+    if(tk) tk.textContent = "  ●  " + news.slice(-6).map(n=> n.text).join("　　●　　") + "  ";
+    const upd = ()=>{
+      const hf = document.getElementById("deskHeat");
+      if(!hf) return;
+      const h = game.heat();
+      const pct = Math.min(100, h / 120 * 100);
+      hf.style.width = pct + "%";
+      hf.style.background = h >= game.heatCritical() ? "#e0483a" : h >= game.heatThreshold() ? "#e0a53a" : "#3ac06a";
+    };
+    upd();
+    deskLoopTimer = setInterval(upd, 1000);
   }
   function deskIcon(key,glyph,label){
     return `<button class="desk-icon" data-icon="${key}"><span class="di-glyph">${glyph}</span><span class="di-label">${label}</span></button>`;
@@ -213,12 +241,29 @@ const UI = (function(){
       <span class="hs-isp">${r.isp.name}</span>
       <span class="hs-modem">${r.modem.name}</span>
       <span class="hs-weather">${r.weather.icon} ${r.weather.name}</span>
+      <span class="hs-conn" id="hsConn"></span>
       <button class="hs-abort" id="hsAbort">中止</button>`;
     el.querySelector("#hsAbort").onclick = ()=>{
       Sound.click();
       Handshake.abort();
       desktop();
     };
+    updateConnHud();
+  }
+
+  function updateConnHud(){
+    const r = game.state.run;
+    const scr = document.body.dataset.screen;
+    const el = scr === "download" ? document.getElementById("dlConn") : document.getElementById("hsConn");
+    if(!el || !r) return;
+    const bill = game.currentBill();
+    const heat = Math.round(game.heat());
+    const hot = heat >= game.heatThreshold();
+    el.innerHTML =
+      (r.billFree
+        ? `<span class="hud-teleho">🌙 通話料 ¥0</span>`
+        : `<span class="hud-bill">☎ ¥${bill.toLocaleString()}</span>`) +
+      `<span class="hud-heat ${hot?'hot':''}">🌡 ${heat}${hot?' 高温':''}</span>`;
   }
 
   /* ---------- CONNECT フラッシュ ---------- */
@@ -273,10 +318,11 @@ const UI = (function(){
   /* ---------- ダウンロード結果 ---------- */
   function showDownloadResult(data){
     showScreen("result");
-    const { file, completion, ok, reason, value, corrupted } = data;
+    const { file, completion, ok, reason, value, corrupted, bill } = data;
     const rar = RARITY[file.rarity];
     const scr = document.getElementById("resultScreen");
-    const nextModem = MODEMS[game.state.modemTier + 1];
+    const nextModem = game.nextModem();
+    const net = value - (bill || 0);
     scr.innerHTML = `
       <div class="win98 res-window">
         <div class="win98-title"><span>${ok ? "ダウンロード完了" : "転送中断"}</span></div>
@@ -292,6 +338,7 @@ const UI = (function(){
           ${!ok ? `<div class="res-warn">${reason}<br>不完全なファイルは価値が下がる。</div>` : ""}
           ${corrupted && ok ? `<div class="res-warn">ノイズで一部が化けた。</div>` : ""}
           <div class="res-earn">売却額 <b>+${formatMoney(value)}</b></div>
+          ${bill > 0 ? `<div class="res-bill">通話料 <b>−${formatMoney(bill)}</b>　<span class="res-net">差引 ${net>=0?'+':''}${formatMoney(net)}</span></div>` : `<div class="res-bill res-teleho">🌙 テレホーダイ時間帯 — 通話料 ¥0</div>`}
           <div class="res-money">所持金: <b>${formatMoney(game.state.money)}</b></div>
           ${nextModem && game.state.money >= nextModem.price
             ? `<div class="res-hint">💡 <b>${nextModem.name}</b> が買える！</div>` : ""}
@@ -353,7 +400,7 @@ const UI = (function(){
   return {
     showScreen, boot, desktop, ispSelect,
     setHandshakeHeader, showConnectFlash, showNoCarrier, showDownloadResult,
-    openAchievements, openChangelog, openDex, openUpgrades, closeModal, powerOff,
+    openAchievements, openChangelog, openDex, openUpgrades, closeModal, powerOff, updateConnHud,
     banner, refreshMoney
   };
 })();

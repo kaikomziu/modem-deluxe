@@ -11,9 +11,10 @@ const game = {
       money: 0,
       modemTier: 0,   // 現在使用中の回線
       maxTier: 0,      // 購入済みの最高回線
-      aux: { autotrack:0, speeddial:0, noisefilter:0, timeext:0, surge:0 },
-      soundOffed:false, crtOffed:false,
+      aux: { autotrack:0, speeddial:0, noisefilter:0, timeext:0, surge:0, coolfan:0, ups:0 },
+      soundOffed:false, crtOffed:false, radioOffed:false,
       tutorialSeen:false, tutHints:{},
+      modemHeat: 0, heatUpdatedAt: Date.now(),
       achUnlocked: {},
       // ラン中の一時データ
       run: null,
@@ -33,7 +34,9 @@ const game = {
         playSeconds:0,
         couplerConnects:0, rawStormConnect:false, wentBrokeAndDialed:false,
         gotArchiveOfWeb:false,
-        startMenuOpened:false, dosUsed:false, bsod:false, konami:false
+        startMenuOpened:false, dosUsed:false, bsod:false, konami:false,
+        phoneBillPaid:0, telehoConnects:0, overheatDrops:0, blackoutSaved:0,
+        catchAnswered:0, catchIgnored:0, applianceHits:0
       }
     };
   },
@@ -51,6 +54,8 @@ const game = {
       this.state = this.defaultState();
     }
     this.state.run = null;
+    this.state.modemHeat = 0;
+    this.state.heatUpdatedAt = Date.now();
     // 旧セーブ互換: maxTier が無ければ現在の tier を最高とみなす
     this.state.maxTier = Math.max(this.state.maxTier || 0, this.state.modemTier || 0);
     this.state.stats.sessionsPlayed++;
@@ -85,6 +90,50 @@ const game = {
     if(n > 0) this.state.stats.totalEarned += n;
     this.save();
     UI.refreshMoney();
+  },
+
+  /* ---- モデム発熱 ---- */
+  // 経過時間ぶんの放熱を反映して現在の熱量を返す
+  heat(){
+    const now = Date.now();
+    const dt = Math.max(0, (now - (this.state.heatUpdatedAt || now)) / 1000);
+    const coolRate = 1.1 * (1 + this.auxEffect("coolfan") * 2.2);   // /秒
+    this.state.modemHeat = Math.max(0, (this.state.modemHeat || 0) - dt * coolRate);
+    this.state.heatUpdatedAt = now;
+    return this.state.modemHeat;
+  },
+  addHeat(n){
+    this.heat();
+    const resist = 1 - this.auxEffect("coolfan") * 0.55;
+    this.state.modemHeat = Math.min(120, this.state.modemHeat + n * resist);
+    this.save();
+  },
+  heatThreshold(){ return 60 + this.auxEffect("coolfan") * 25; },   // これ以上で不調
+  heatCritical(){ return 92 + this.auxEffect("coolfan") * 15; },
+
+  /* ---- 通話料 ---- */
+  phoneRatePerSec(){
+    const np = MODEMS[this.state.maxTier + 1];
+    const anchor = (np ? np.price : MODEMS[this.state.modemTier].price * 2.2) / 16;
+    return Math.max(2, Math.round(anchor * 0.0045));
+  },
+  currentBill(){
+    const r = this.state.run;
+    if(!r || r.billFree) return 0;
+    const sec = (Date.now() - r.billStart) / 1000;
+    return Math.round(sec * this.phoneRatePerSec());
+  },
+  settleBill(){
+    const r = this.state.run;
+    if(!r || r.billSettled) return 0;
+    r.billSettled = true;
+    const bill = this.currentBill();
+    if(bill > 0){
+      this.state.money = Math.max(0, this.state.money - bill);
+      this.state.stats.phoneBillPaid += bill;
+      this.save();
+    }
+    return bill;
   },
 
   /* ---- モデム購入 ---- */
@@ -146,7 +195,8 @@ const game = {
       dialErrors:0, carrierMisses:0, negoQuality:0, negoOneShot:false,
       perfectSoFar:true,
       hiddenDial:null, secretFileKey:null,
-      handshakeMs:0
+      handshakeMs:0,
+      billStart: Date.now(), billFree: isTelehoTime(), billSettled:false
     };
     checkAchievements();
     return this.state.run;
@@ -173,6 +223,8 @@ const game = {
     if(this.state.modemTier === 0) s.couplerConnects++;
     if(this.state.modemTier < this.state.maxTier) s.retroConnects++;
     if(r.isp) s.ispsUsed[r.isp.id] = (s.ispsUsed[r.isp.id] || 0) + 1;
+    if(isTelehoTime()) s.telehoConnects++;
+    this.addHeat(7);
 
     if(r.perfectSoFar && r.dialErrors === 0 && r.carrierMisses === 0){
       s.perfectHandshakes++;
@@ -188,6 +240,7 @@ const game = {
   onNoCarrier(){
     this.state.stats.noCarrier++;
     this.state.stats.streak = 0;
+    this.lastBill = this.settleBill();
     this.save();
     checkAchievements();
   },

@@ -502,6 +502,49 @@ body{
 .coach-text{ flex:1; }
 .coach-x{ font-family:inherit; font-size:11px; cursor:pointer; background:#0d2c17; color:var(--crt-green); border:1px solid #2a6c40; padding:4px 10px; flex-shrink:0; }
 
+/* ---------- 通話料 / 発熱 HUD ---------- */
+.hs-conn, .dl-conn{ display:flex; gap:8px; font-size:11px; align-items:center; }
+.hud-bill{ color:#ffd08a; }
+.hud-teleho{ color:#8adca0; }
+.hud-heat{ color:#9fd; }
+.hud-heat.hot{ color:#ff8a6a; font-weight:bold; animation:heatBlink .8s steps(2) infinite; }
+@keyframes heatBlink{ 50%{ opacity:.5; } }
+.dl-conn{ color:#000; }
+.dl-conn .hud-bill{ color:#8a2a00; }
+.dl-conn .hud-teleho{ color:#1a6a2a; }
+.dl-conn .hud-heat{ color:#333; }
+
+.heat-gauge{ display:inline-block; width:90px; height:10px; background:#0a2a16; border:1px solid #1c5c30; vertical-align:middle; }
+.desk-stat .heat-gauge{ background:#9aa; border:1px solid #778; }
+.heat-fill{ display:block; height:100%; width:0; background:#3ac06a; transition:width .5s, background .5s; }
+
+.desk-ticker{ width:min(360px,100%); margin-top:6px; overflow:hidden; background:#000; border:2px inset #2a2a2a; height:22px; }
+.desk-ticker-in{ white-space:nowrap; color:#5adc8c; font-size:11px; line-height:22px; font-family:"MS Gothic",monospace;
+  display:inline-block; padding-left:100%; animation:ticker 40s linear infinite; }
+@keyframes ticker{ to{ transform:translateX(-100%); } }
+
+.res-bill{ font-size:13px; margin:2px 0 4px; }
+.res-bill b{ color:#b02a2a; }
+.res-net{ font-size:11px; color:#555; }
+.res-bill.res-teleho{ color:#1a7d1a; font-size:12px; }
+
+.dl-appliances{ min-height:16px; font-size:11px; margin-top:4px; }
+.appl.warn{ color:#a06000; }
+.appl.active{ color:#c00; font-weight:bold; animation:heatBlink .5s steps(2) infinite; }
+.dl-radio{ min-height:15px; font-size:11px; color:#456; font-style:italic; margin-top:2px; }
+
+.dl-event{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.35); z-index:20; }
+.dl-event[hidden]{ display:none; }
+.dl-event-box{ background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-shadow) var(--win-shadow) var(--win-hi);
+  padding:14px; text-align:center; max-width:260px; box-shadow:3px 3px 12px rgba(0,0,0,.5); }
+.dl-event-box.ups{ background:#1a1a1a; color:#ffb84d; border-color:#ffb84d; }
+.dl-event-t{ font-weight:bold; font-size:14px; margin-bottom:6px; }
+.dl-event-m{ font-size:12px; margin-bottom:10px; }
+.dl-event-btns{ display:flex; gap:8px; justify-content:center; }
+.ups-bar{ height:8px; background:#333; margin-top:10px; }
+.ups-fill{ height:100%; width:100%; background:#ffb84d; transition:width .05s linear; }
+#downloadScreen.dl-blackout{ filter:brightness(.08); transition:filter .1s; }
+
 /* ---------- PC: start menu / DOS / BSOD / screensaver ---------- */
 .pc-layer{ position:fixed; inset:0; z-index:500; display:none; }
 .pc-layer.active{ display:block; }
