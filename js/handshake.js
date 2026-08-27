@@ -100,6 +100,7 @@ const Handshake = (function(){
       </div>`;
 
     Sound.startDialTone();
+    Tutorial.stageHint("dial");
     const readout = stageEl.querySelector("#dialReadout");
     const status  = stageEl.querySelector("#dialStatus");
     const targBox = stageEl.querySelector(".dial-target");
@@ -243,6 +244,7 @@ const Handshake = (function(){
     const pctEl = stageEl.querySelector("#signalPct");
     const statusEl = stageEl.querySelector("#carrierStatus");
     const scale = stageEl.querySelector(".carrier-scale");
+    Tutorial.stageHint("carrier");
 
     const tier = game.state.modemTier;
     let targetPos = 0.25 + Math.random()*0.5;
@@ -362,6 +364,7 @@ const Handshake = (function(){
     const statusEl = stageEl.querySelector("#negoStatus");
     const pushBtn = stageEl.querySelector("#negoPush");
     const scr = document.getElementById("handshakeScreen");
+    Tutorial.stageHint("nego");
 
     const tier = game.state.modemTier;
     const ceiling = Math.max(0.4, 0.55 + Math.random()*0.4 - Math.min(0.12, tier*0.006));

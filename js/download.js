@@ -42,6 +42,7 @@ const Download = (function(){
     UI.showScreen("download");
     Sound.init(); Sound.resume();
     renderShell();
+    Tutorial.stageHint("download");
     els.title.textContent = file.name;
     els.host.textContent = fakeHost(r.isp, r.modem);
     last = performance.now();

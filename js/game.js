@@ -12,6 +12,7 @@ const game = {
       modemTier: 0,
       aux: { autotrack:0, speeddial:0, noisefilter:0, timeext:0, surge:0 },
       soundOffed:false, crtOffed:false,
+      tutorialSeen:false, tutHints:{},
       achUnlocked: {},
       // ラン中の一時データ
       run: null,

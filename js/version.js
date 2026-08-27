@@ -1,7 +1,15 @@
 // MODEM DELUXE - 更新履歴
-const APP_VERSION = "1.0.1";
+const APP_VERSION = "1.1.0";
 
 const CHANGELOG = [
+  {
+    version: "1.1.0",
+    date: "2026-08-28",
+    notes: [
+      "チュートリアルを追加(初回起動時に自動表示、デスクトップの❓遊びかたでいつでも再表示)",
+      "各ステージ初回に操作のワンポイントヒントを表示"
+    ]
+  },
   {
     version: "1.0.1",
     date: "2026-08-28",

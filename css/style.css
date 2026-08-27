@@ -407,6 +407,38 @@ body{
 .ui-banner.good{ border-color:var(--amber); color:#fff; }
 .ui-banner.info{ border-color:#3a9ce0; }
 
+/* ---------- tutorial ---------- */
+.tutorial-layer{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:400; padding:16px; }
+.tutorial-layer.active{ display:flex; }
+.tut-win{ width:min(460px,100%); }
+.tut-body{ position:relative; text-align:center; }
+.tut-icon{ font-size:44px; margin-bottom:4px; }
+.tut-title{ font-size:16px; color:#000082; margin-bottom:10px; }
+.tut-text{ font-size:13px; line-height:1.8; color:#1a1a1a; text-align:left; min-height:120px; }
+.tut-text b{ color:#000082; }
+.tut-steps{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:8px 0; }
+.tut-steps span{ background:#000082; color:#fff; font-size:11px; padding:3px 8px; }
+.tut-dots{ display:flex; gap:5px; justify-content:center; margin:12px 0 10px; }
+.tut-dots span{ width:8px; height:8px; border-radius:50%; background:#a7abb0; }
+.tut-dots span.on{ background:#000082; }
+.tut-nav{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.tut-count{ font-size:12px; color:#555; }
+.tut-skip{ position:absolute; top:8px; right:8px; font-family:inherit; font-size:11px; background:none; border:none; color:#555; cursor:pointer; text-decoration:underline; }
+
+/* ---------- coach hint ---------- */
+.coach-layer{ position:fixed; left:50%; top:12px; transform:translateX(-50%); width:min(500px,94%); z-index:250; display:flex; flex-direction:column; gap:6px; }
+.coach{
+  display:flex; align-items:center; gap:10px;
+  background:#3a2c0d; border:1px solid var(--amber); color:#fff;
+  padding:10px 12px; font-size:12px; line-height:1.5;
+  transform:translateY(-24px); opacity:0; transition:.35s;
+  box-shadow:0 6px 20px rgba(0,0,0,.5);
+}
+.coach.show{ transform:translateY(0); opacity:1; }
+.coach-tag{ background:var(--amber); color:#000; font-weight:bold; font-size:10px; padding:2px 5px; flex-shrink:0; }
+.coach-text{ flex:1; }
+.coach-x{ font-family:inherit; font-size:11px; cursor:pointer; background:#0d2c17; color:var(--crt-green); border:1px solid #2a6c40; padding:4px 10px; flex-shrink:0; }
+
 /* ---------- responsive ---------- */
 @media (max-width:640px){
   .crt{ padding:0; }

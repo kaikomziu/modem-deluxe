@@ -61,6 +61,7 @@ const UI = (function(){
           ${deskIcon("connect","☎","接続する")}
           ${deskIcon("upgrade","🖧","アップグレード")}
           ${deskIcon("ach","🏆","実績")}
+          ${deskIcon("help","❓","遊びかた")}
           ${deskIcon("log","📜","更新履歴")}
         </div>
         <div class="desk-panel win98">
@@ -88,6 +89,7 @@ const UI = (function(){
     scr.querySelector('[data-icon="connect"]').onclick = ()=>{ Sound.click(); ispSelect(); };
     scr.querySelector('[data-icon="upgrade"]').onclick = ()=>{ Sound.click(); openUpgrades(); };
     scr.querySelector('[data-icon="ach"]').onclick = ()=>{ Sound.click(); openAchievements(); };
+    scr.querySelector('[data-icon="help"]').onclick = ()=>{ Sound.click(); Tutorial.open(true); };
     scr.querySelector('[data-icon="log"]').onclick = ()=>{ Sound.click(); openChangelog(); };
     scr.querySelector("#tbSound").onclick = (e)=>{
       const on = !Sound.isEnabled();
@@ -103,6 +105,7 @@ const UI = (function(){
     };
     startClock();
     updateAchBadge();
+    Tutorial.maybeShowIntro();
   }
   function deskIcon(key,glyph,label){
     return `<button class="desk-icon" data-icon="${key}"><span class="di-glyph">${glyph}</span><span class="di-label">${label}</span></button>`;
